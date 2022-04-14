@@ -16,13 +16,17 @@ class IO_Schema(ags.ArgSchema):
 
 def main(swc_input_directory, output_file, compartment_types, use_multiprocessing, **kwargs):
     """
-    Will create csv reporting distance between nodes of a type for all combinations of swc files in directory
+    Will create csv reporting mean distance between nodes of a certain type (axon/basal/apical dendrite)
+    for all combinations of swc files in directory. This will leverage parallel processing to speed things up.
+
+    This is particularly useful in trying to identify duplicate/very similar swc files, but may also be used as a
+    rudimentary asymmetric similarity metric for comparing neurons.
     """
     parallel_inputs = []
     swc_input_directory = os.path.abspath(swc_input_directory)
     file_list = [os.path.join(swc_input_directory,f) for f in os.listdir(swc_input_directory)]
     all_combinations = list(itertools.combinations(file_list, 2))
-    all_combinations = [c for c in all_combinations] # if c[0] != c[1]]
+    # all_combinations = [c for c in all_combinations] # if c[0] != c[1]]
 
     print("{} Comparisons to analyze".format(len(all_combinations)))
     reslist = []
