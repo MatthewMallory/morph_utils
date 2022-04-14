@@ -1,0 +1,6 @@
+scipy
+numpy
+argschema
+pandas
+matplotlib
+neuron_morphology
