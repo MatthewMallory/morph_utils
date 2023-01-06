@@ -7,9 +7,11 @@ def basic_morph_plot(morph,
                          side=False,
                          xoffset=0,
                          line_w=0.5,
-                         scatter=True,
+                         scatter=False,
                          scatter_roots=True,
-                         dotsize=None
+                         dotsize=None,
+                         scatter_soma = True,
+                         soma_dot_size = 1,
                          ):
     """
     Populate a matplotlib axes with a morphology plot.
@@ -64,27 +66,27 @@ def basic_morph_plot(morph,
 
     #scatter soma as per morph.get_soma()
     soma_node = morph.get_soma()
-    if soma_node:
+    if (soma_node) and (scatter_soma):
         if not side:
-            ax.scatter(soma_node['x'], soma_node['y'], c='k', marker='X', s=dotsize * 4, label='morph.get_soma()')
+            ax.scatter(soma_node['x'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, label='morph.get_soma()')
         else:
-            ax.scatter(soma_node['z'], soma_node['y'], c='k', marker='X', s=dotsize * 4, label='morph.get_soma()')
+            ax.scatter(soma_node['z'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, label='morph.get_soma()')
 
     #scatter root nodes throughout 
     if scatter_roots:
         root_nodes = [n for n in morph.nodes() if (n['parent'] == -1) and (n['type']==1)]
         for rn in root_nodes:
             if not side:
-                ax.scatter(rn['x'], rn['y'], c='k', marker='X', s=dotsize * 2, label='root (parent=-1,type=1)')
+                ax.scatter(rn['x'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, label='root (parent=-1,type=1)')
             else:
-                ax.scatter(rn['z'], rn['y'], c='k', marker='X', s=dotsize * 2, label='root (parent=-1,type=1)')
+                ax.scatter(rn['z'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, label='root (parent=-1,type=1)')
 
     soma_root = morph.get_soma()
     if soma_root:
         for ch in morph.get_children(soma_root):
             if not side:
-                ax.plot([ch['x'], soma_root['x']],
+                ax.plot([ch['x'] + xoffset, soma_root['x']+ xoffset],
                         [ch['y'], soma_root['y']], c='k', linewidth=line_w * 2.5)
             else:
-                ax.plot([ch['z'], soma_root['z']],
+                ax.plot([ch['z'] + xoffset, soma_root['z']+ xoffset],
                         [ch['y'], soma_root['y']], c='k', linewidth=line_w * 2.5)

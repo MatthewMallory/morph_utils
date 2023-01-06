@@ -25,6 +25,25 @@ def bfs_tree(st_node, morph):
 
     return nodes_in_segment, len(nodes_in_segment)
 
+
+def dfs_tree(morphology, st_node):
+    """
+    Graph traversal using depth first search
+    :param morphology: neuron_morphology.Morphology object
+    :param st_node: neuron_morphology.Morphology.node, dictionary
+    :return: list of nodes in segment (in dfs order including start node), int number of nodes in segment
+    """
+    visited = []
+    queue = deque([st_node])
+    while len(queue) > 0:
+        current_node = queue.popleft()
+        visited.append(current_node)
+        for ch_no in morphology.get_children(current_node):
+            queue.appendleft(ch_no)
+
+    return visited, len(visited)
+
+
 def dfs_labeling(st_node, new_starting_id, modifying_dict, morph):
     """
     depth first traversal for relabeling a segment of a morphology.
@@ -44,6 +63,8 @@ def dfs_labeling(st_node, new_starting_id, modifying_dict, morph):
         for ch_no in morph.get_children(current_node):
             queue.appendleft(ch_no)
     return ct
+
+
 
 
 def dfs_loop_check(morphology, st_node):
@@ -95,7 +116,7 @@ def get_path_to_root(start_node, morphology):
     return seg_up
 
 
-def get_path_dist_between_two_nodes(lower_node, upper_node, morphology):
+def get_path_and_path_dist_between_two_nodes(lower_node, upper_node, morphology):
     """
     Will return the path distance between two nodes assuming they are on the same branch. If they are not on the same
     branch, will return np.inf. In the future may refactor this so that we first check both nodes are in the tree,
@@ -112,17 +133,19 @@ def get_path_dist_between_two_nodes(lower_node, upper_node, morphology):
 
     max_iterations = len(morphology.nodes())
     path_distance = 0.0
+    path = []
     counter = 0
     while lower_node['id'] != upper_node_id:
         counter += 1
         if counter > max_iterations:
-            return np.inf
+            return [], np.inf
 
         parent_node = morphology.node_by_id(lower_parent_id)
+        path.append(lower_node)
         path_distance += euclidean([parent_node['x'], parent_node['y'], parent_node['z']],
                                    [lower_node['x'], lower_node['y'], lower_node['z']])
 
         lower_node = parent_node
         lower_parent_id = lower_node['parent']
 
-    return path_distance
+    return path, path_distance

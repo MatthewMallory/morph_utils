@@ -7,34 +7,63 @@ from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
 
 
-def assign_soma_by_node_degree(morphology,num_children_threshold=2):
+def assign_soma_by_node_degree(morphology, num_children_threshold=2):
     """
-    Will assign soma to the node that has the most children.
+    Will assign soma to the node that has the most children. This will NOT remove duplicate soma nodes,
+    only assign the node with highest degree as soma.
 
+    :param num_children_threshold: the minimum number of children a true soma node will have
     :param morphology: neuron_morphology Morphology object
     :return: neuron_morphology Morphology object
     """
-    num_children_per_node = {n['id']: len(morphology.get_children(n)) for n in morphology.nodes()}
-    max_num_children = max(list(num_children_per_node.values()))
-    if max_num_children >= num_children_threshold:
-        no_ids = [k for k, v in num_children_per_node.items() if v == max_num_children]
-        chosen_node = no_ids[0]
-        print(
-            "Choosing new soma based on num children. There are {} nodes with max value of {} children".format(len(no_ids),
-                                                                                                               max_num_children))
 
-        morphology.node_by_id(chosen_node)['type'] = 1
-        keeping_nodes = morphology.nodes()
+    soma_types = [n for n in morphology.nodes() if n['type'] == 1]
+    if len(soma_types) != 1:
 
-        new_morph = Morphology(keeping_nodes,
-                               node_id_cb=lambda x: x['id'],
-                               parent_id_cb=lambda x: x['parent'])
-        print("New Morphs Soma = {}".format(new_morph.get_soma()))
+        num_children_per_node = {n['id']: len(morphology.get_children(n)) for n in morphology.nodes()}
+        max_num_children = max(list(num_children_per_node.values()))
+        if max_num_children >= num_children_threshold:
+            no_ids = [k for k, v in num_children_per_node.items() if v == max_num_children]
 
-        return new_morph
+            if len(no_ids) > 1:
+                # find which node is closest to the morphology centroid
+                coords = np.array([[n['x'], n['y'], n['z']] for n in morphology.nodes()])
+                center = np.mean(coords, axis=0)
+                centroid = (center[0], center[1], center[2])
+
+                min_dist_to_centroid = np.inf
+                chosen_node = no_ids[0]
+                for no_id in no_ids:
+                    this_no = morphology.node_by_id(no_id)
+                    this_no_coord = (this_no['x'], this_no['y'], this_no['z'])
+                    this_dist_to_centroid = euclidean(this_no_coord, centroid)
+
+                    if this_dist_to_centroid < min_dist_to_centroid:
+                        min_dist_to_centroid = this_dist_to_centroid
+                        chosen_node = no_id
+            else:
+                chosen_node = no_ids[0]
+                print(
+                    "Choosing new soma based on num children. There are {} nodes with max value of {} children".format(
+                        len(no_ids),
+                        max_num_children))
+
+            morphology.node_by_id(chosen_node)['type'] = 1
+            keeping_nodes = morphology.nodes()
+
+            new_morph = Morphology(keeping_nodes,
+                                   node_id_cb=lambda x: x['id'],
+                                   parent_id_cb=lambda x: x['parent'])
+            print("New Morphs Soma = {}".format(new_morph.get_soma()))
+
+            return new_morph
+        else:
+            print("There are no nodes in the morphology that have at least {} children".format(num_children_threshold))
+            return morphology
+
     else:
-        print("There are no nodes in the morphology that have at least {} children".format(num_children_threshold))
         return morphology
+
 
 def remove_duplicate_soma(morphology, soma=None):
     """
@@ -170,7 +199,6 @@ def sort_morph_ids(morph, soma_node=None, specimen_id=None, **kwargs):
     sorted_morph = morphology_from_swc(sorted_swc_path)
     os.remove(sorted_swc_path)
     os.remove(unsorted_swc_path)
-    print(sorted_morph.get_soma())
     return sorted_morph
 
 
@@ -221,15 +249,15 @@ def re_structure_segment(morphology, new_root_node, new_roots_parent=-1, overwri
     return new_morph
 
 
-def strip_compartment_from_morph(morph, compartment):
+def strip_compartment_from_morph(morph, compartment_to_strip):
     """
     remove all nodes of a certain type from a morphology
 
     :param morph: a neuron_morphology Morphology object
-    :param compartment: list of compartment types to remove [e.g. compartment = [3,4] would leave only soma and axon nodes]
+    :param compartment_to_strip: list of compartment types to remove [e.g. compartment = [3,4] would leave only soma and axon nodes]
     :return: neuron_morphology Morphology object
     """
-    nodes = [n for n in morph.nodes() if n['type'] != compartment]
+    nodes = [n for n in morph.nodes() if n['type'] not in compartment_to_strip]
     axon_strip_morph = Morphology(nodes,
                                   parent_id_cb=lambda x: x['parent'],
                                   node_id_cb=lambda x: x['id'])

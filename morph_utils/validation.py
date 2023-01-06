@@ -1,9 +1,11 @@
 from scipy.spatial.distance import euclidean
 from collections import defaultdict
 from morph_utils.graph_traversal import dfs_loop_check
+from neuron_morphology.swc_io import morphology_from_swc
+import os
 
 
-def ivscc_validate_morph(morph, distance_threshold=50, expected_types=[1, 2, 3, 4]):
+def ivscc_validate_morph(input_swc, distance_threshold=50, expected_types=[1, 2, 3, 4]):
     """
     Standard protocol for validating an swc file as per AIBS IVSCC pipeline. This will:
     1. Make sure a soma node exists
@@ -17,12 +19,15 @@ def ivscc_validate_morph(morph, distance_threshold=50, expected_types=[1, 2, 3, 
     9. All apical/basal dendrite nodes have parent of either soma or apical/basal dendrite respectively
     10. All axon nodes have parent of either axon, soma, or basal dendrite.
     11. There are no loops
+    12. The soma ID is 1
+    13. TODO Check if node IDs are sorted
 
-    :param morph: neuron_morphology morphology object
+    :param input_swc: path to swc file; str
     :param distance_threshold: maximum distance a valid child may be from soma
     :param expected_types: expected node types
     :return: error_list: list of all errors encountered; list
     """
+    morph = morphology_from_swc(input_swc)
 
     nodes_to_qc = morph.nodes()
     all_node_ids = [n['id'] for n in nodes_to_qc]
@@ -92,14 +97,14 @@ def ivscc_validate_morph(morph, distance_threshold=50, expected_types=[1, 2, 3, 
             number_of_roots += 1
 
     if axon_origins > 1:
-        error_list.append("Multiple Axon Origins ({} found".format(axon_origins))
+        error_list.append("Multiple Axon Origins ({} found)".format(axon_origins))
 
     if number_of_roots > 1:
         error_list.append("Multiple Root Nodes ({} found)".format(number_of_roots))
 
     duplicate_coords = [k for k, v in number_of_nodes_at_each_coord.items() if v != 1]
     num_duplicate_coords = len(duplicate_coords)
-    if num_duplicate_coords != 1:
+    if num_duplicate_coords != 0:
         error_list.append("Nodes With Identical X,Y,Z Coordinates Found ({} found)".format(num_duplicate_coords))
 
     # Loop Check
@@ -110,8 +115,15 @@ def ivscc_validate_morph(morph, distance_threshold=50, expected_types=[1, 2, 3, 
         if confidence == "Ambiguous":
             error_list.append("Unable to check for loops due to missing root")
 
+    # Soma ID Check:
+    if (soma is not None) and (soma['id'] != 1):
+        error_list.append("Soma Node ID Is Not 1")
+
     error_list = list(set(error_list))
-    return error_list
+
+    res_dict = {"file_name": os.path.abspath(input_swc),
+                "error_list": error_list}
+    return res_dict
 
 
 def check_for_loops(morphology):
