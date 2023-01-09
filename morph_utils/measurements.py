@@ -72,10 +72,11 @@ def get_node_spacing(morph, node_types_to_check=[1, 2, 3, 4]):
     return np.nanmean(distances), distances
 
 
-def node_distance_between_morphs(swc_file_1, swc_file_2, compartment_types):
+def simple_node_distance_between_morphs(swc_file_1, swc_file_2, compartment_types):
     """
     will calculate the mean distance between two swc file nodes of a certain type. For each  node in file 1, the
-    nearest node in file 2 is found (that has type contained in compartment_types). This is the forward distance. The
+    nearest node in file 2 is found (that has type contained in compartment_types). The matched node does not need
+    to be of the same compartment, only needs to be found in compartment_types. This is the forward distance. The
     reverse distance will be the opposite direction. Return is a dictionary for easy multiprocessing compatibility
 
     Note that basal dendrites can be matched to apical dendrites and vice versa if compartment_types = [3,4] if that
@@ -111,11 +112,14 @@ def node_distance_between_morphs(swc_file_1, swc_file_2, compartment_types):
 def node_distance_between_morphs(swc_file_1, swc_file_2, compartment_types, compartment_match=True):
     """
     will calculate the mean distance between two swc file nodes of a certain type. For each  node in file 1, the
-    nearest node in file 2 is found (that has type contained in compartment_types). This is the forward distance. The
-    reverse distance will be the opposite direction. Return is a dictionary for easy multiprocessing compatibility
+    nearest node in file 2 is found (that has type contained in compartment_types). When compartment_match is True, the
+    matched node from file 2 must be of the same compartment as the query node in file 1, otherwise the score is
+    penalized This is the forward distance. The reverse distance will be the opposite direction. Return is a dictionary
+    for easy multiprocessing compatibility
 
     Note that basal dendrites can be matched to apical dendrites and vice versa if compartment_types = [3,4] if that
-    is the closest coordinate found AND compartment_match = False.
+    is the closest coordinate found AND compartment_match = False. When compartment_match is True, a penalty is added
+    to the distance score if compartments are mismatched.
 
     :param swc_file_1: str, path to swc file 1
     :param swc_file_2: str, path to swc file 2
@@ -168,7 +172,6 @@ def node_distance_between_morphs(swc_file_1, swc_file_2, compartment_types, comp
                     morph_2_to_1_dists, _ = morph_1_kd_tree.query(morph_2_nodes, k=1)
                     morph_1_to_2_dists, _ = morph_2_kd_tree.query(all_morph_1_nodes_arr, k=1)
 
-
                 else:
                     morph_1_kd_tree = KDTree(morph_1_nodes)
                     morph_2_kd_tree = KDTree(all_morph_2_nodes_arr)
@@ -179,7 +182,6 @@ def node_distance_between_morphs(swc_file_1, swc_file_2, compartment_types, comp
                 # penalize distance metric for incompatible compartment matching
                 [morph_2_to_1_all_dists.append(d * 3.0) for d in morph_2_to_1_dists]
                 [morph_1_to_2_all_dists.append(d * 3.0) for d in morph_1_to_2_dists]
-
 
     else:
 
