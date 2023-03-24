@@ -57,6 +57,8 @@ def generate_irreducible_morph(morph):
                                    node_id_cb=lambda x: x['id'])
 
     return morph_irreducible
+
+
 def assign_soma_by_node_degree(morphology, num_children_threshold=2):
     """
     Will assign soma to the node that has the most children. This will NOT remove duplicate soma nodes,

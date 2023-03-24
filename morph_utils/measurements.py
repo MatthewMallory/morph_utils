@@ -33,6 +33,27 @@ def rightextent(morph, compartments=[2, 3, 4]):
     return max([n['x'] - morph.get_soma()['x'] for n in morph.nodes() if n['type'] in compartments] + [0])
 
 
+def tree_length(morphology, st_node=None):
+    "Measure the total length of the descendant tree from a given start node"
+
+    if not st_node:
+        st_node = morphology.get_soma()
+
+        if not st_node:
+            st_node = [n for n in morphology.nodes() if n['parent'] == -1][0]
+
+    visited = []
+    dist = 0.0
+    queue = deque([st_node])
+    while len(queue) > 0:
+        current_node = queue.popleft()
+        visited.append(current_node)
+        for ch_no in morphology.get_children(current_node)[::-1]:
+            queue.appendleft(ch_no)
+            dist += dist_bwn_nodes(current_node, ch_no)
+    return dist
+
+
 def dist_bwn_nodes(n1, n2):
     """
     Euclidean distance between nodes
