@@ -7,6 +7,56 @@ from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
 
 
+def generate_irreducible_morph(morph):
+    """
+    Will generate an irreducible morphology object. The only remaining nodes will be roots,
+    branches and tip nodes.
+
+    :param morph: neuron_morphology Morphology object
+    :return: neuron_morphology Morphology object
+    """
+    morph = morph.clone()
+
+    irreducible_nodes = [n for n in morph.nodes() if
+                         (len(morph.get_children(n)) > 1) or (len(morph.get_children(n)) == 0) or (n['parent'] == -1)]
+    soma = morph.get_soma()
+    if not soma:
+        soma_list = [n for n in morph.nodes() if n['parent'] == -1]
+        if len(soma_list) != 1:
+            print("Invalid Number of somas (0 or >1)")
+            return None
+        else:
+            soma = soma_list[0]
+    if soma not in irreducible_nodes and soma:
+        irreducible_nodes.append(morph.get_soma())
+
+    leaves = [n for n in morph.nodes() if len(morph.get_children(n)) == 0]
+    irreducible_nodes_with_topology = []
+    # need to re-assign parent child relationship for only irreducible nodes
+    for leaf_no in leaves:
+        path_to_root = get_path_to_root(leaf_no, morph)
+
+        if leaf_no not in path_to_root:
+            path_to_root.insert(0, leaf_no)
+
+        irreducible_nodes_in_path = [n for n in path_to_root if n in irreducible_nodes]
+
+        for i in range(0, len(irreducible_nodes_in_path) - 1):
+            this_no = irreducible_nodes_in_path[i]
+            next_node_up = irreducible_nodes_in_path[i + 1]
+
+            this_no['parent'] = next_node_up['id']
+            irreducible_nodes_with_topology.append(this_no)
+
+        # add root 
+        next_node_up['type'] = 1
+        irreducible_nodes_with_topology.append(next_node_up)
+
+    morph_irreducible = Morphology(irreducible_nodes_with_topology,
+                                   parent_id_cb=lambda x: x['parent'],
+                                   node_id_cb=lambda x: x['id'])
+
+    return morph_irreducible
 def assign_soma_by_node_degree(morphology, num_children_threshold=2):
     """
     Will assign soma to the node that has the most children. This will NOT remove duplicate soma nodes,

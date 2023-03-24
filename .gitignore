@@ -31,3 +31,5 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+/linear_resampling.ipynb
+/.ipynb_checkpoints/
