@@ -4,7 +4,6 @@ import numpy as np
 from sklearn.neighbors import KDTree
 from neuron_morphology.swc_io import morphology_from_swc
 
-
 def cellwidth(morph, compartments=[2, 3, 4]):
     right_extent = rightextent(morph, compartments)
     left_extent = leftextent(morph, compartments)
