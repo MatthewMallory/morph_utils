@@ -3,4 +3,5 @@ numpy
 argschema
 pandas
 matplotlib
+sklearn
 neuron_morphology
