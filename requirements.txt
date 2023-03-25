@@ -3,5 +3,5 @@ numpy
 argschema
 pandas
 matplotlib
-sklearn
+scikit-learn
 neuron_morphology
