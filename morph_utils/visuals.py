@@ -12,6 +12,7 @@ def basic_morph_plot(morph,
                          dotsize=None,
                          scatter_soma = True,
                          soma_dot_size = 1,
+                         plot_soma = True
                          ):
     """
     Populate a matplotlib axes with a morphology plot.
@@ -26,6 +27,7 @@ def basic_morph_plot(morph,
     :param scatter: if you want to scatter nodes in addition to drawing their lines
     :param scatter_roots: scatter nodes whose parent = -1
     :param dotsize: dot size for scatter points
+    :param plot_soma: if True will plot lines connecting soma to its children. 
     :return: None, your axis will just be filled with neuron
     """
     ax.set_title(title)
@@ -82,7 +84,7 @@ def basic_morph_plot(morph,
                 ax.scatter(rn['z'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, label='root (parent=-1,type=1)')
 
     soma_root = morph.get_soma()
-    if soma_root:
+    if (soma_root) and (plot_soma):
         for ch in morph.get_children(soma_root):
             if not side:
                 ax.plot([ch['x'] + xoffset, soma_root['x']+ xoffset],
