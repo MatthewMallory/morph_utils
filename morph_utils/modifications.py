@@ -396,9 +396,9 @@ def re_root_morphology(new_start_node, morphology):
     return new_morph
 
 
-def normalizeposition(morph): 
+def normalize_position(morph): 
     """
-    Normalize a morphology position so the soma is at 0,0,0
+    Shift morphology position so the soma is at 0,0,0
 
     :param morph: neuron_morphology Morphology object
     :return: noramlized neuron_morphology Morphology object 
