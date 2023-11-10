@@ -5,6 +5,7 @@ from scipy.spatial.distance import euclidean
 from neuron_morphology.morphology import Morphology
 from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
+from morph_utils.lims_query import query_for_z_resolution
 
 
 def generate_irreducible_morph(morph):
@@ -393,3 +394,39 @@ def re_root_morphology(new_start_node, morphology):
                            parent_id_cb=lambda x: x['parent'])
 
     return new_morph
+
+
+def normalizeposition(morph): 
+    """
+    Normalize a morphology position so the soma is at 0,0,0
+
+    :param morph: neuron_morphology Morphology object
+    :return: noramlized neuron_morphology Morphology object 
+    """
+    #TODO do this with affine transform?
+
+    somaX = morph.get_soma()['x']
+    somaY = morph.get_soma()['y']
+    somaZ = morph.get_soma()['z']
+
+    for no in morph.nodes():
+        no['x'] = no['x']-somaX
+        no['y'] = no['y']-somaY
+        no['z'] = no['z']-somaZ
+
+    return morph
+
+def convert_pixel_to_um(morph, specimen_id):
+    """
+    Convert morphology units from pixel to micron. 
+
+    :param morph: neuron_morphology Morphology object in pixel units
+    :param specimen_id: cell specimen id
+    :return: neuron_morphology Morphology object in micron units
+    """
+    anisotropy_value = query_for_z_resolution(specimen_id)
+    for no in morph.nodes():
+        no['x'] = no['x']*0.1144
+        no['y'] = no['y']*0.1144
+        no['z'] = no['z']*anisotropy_value
+    return morph
