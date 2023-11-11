@@ -39,8 +39,8 @@ def get_soma_structure_and_coords(prints=False):
     # (2) Open up CCF annotation volume
     # ------------------------------
 
-    #TODO upload ccf annotation file to morph_utils?
-    model_directory = r'\\allen\programs\celltypes\production\0378\informatics\model_september_2017\P56\atlases\MouseCCF2017'
+    # model_directory = r'\\allen\programs\celltypes\production\0378\informatics\model_september_2017\P56\atlases\MouseCCF2017'
+    model_directory = '.\data\ccf_annotation'
     annotation_file = os.path.join( model_directory, 'annotation_10.nrrd' )
 
     annotation = sitk.ReadImage( annotation_file )
