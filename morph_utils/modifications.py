@@ -4,6 +4,7 @@ from collections import deque
 from scipy.spatial.distance import euclidean
 from neuron_morphology.morphology import Morphology
 from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
+from neuron_morphology.transforms.affine_transform import AffineTransform
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
 from morph_utils.query import query_for_z_resolution
 
@@ -403,18 +404,12 @@ def normalize_position(morph):
     :param morph: neuron_morphology Morphology object
     :return: noramlized neuron_morphology Morphology object 
     """
-    #TODO do this with affine transform?
+    soma = morph.get_soma()
+    trans_list = [1,0,0, 0,1,0, 0,0,1, -soma['x'],-soma['y'],-soma['z']]
+    translate_transform= AffineTransform.from_list(trans_list)
+    moved_morph = translate_transform.transform_morphology(morph) # if you need the original object to remain unchanged do morph.clone()
 
-    somaX = morph.get_soma()['x']
-    somaY = morph.get_soma()['y']
-    somaZ = morph.get_soma()['z']
-
-    for no in morph.nodes():
-        no['x'] = no['x']-somaX
-        no['y'] = no['y']-somaY
-        no['z'] = no['z']-somaZ
-
-    return morph
+    return moved_morph
 
 def convert_pixel_to_um(morph, specimen_id):
     """
@@ -425,8 +420,8 @@ def convert_pixel_to_um(morph, specimen_id):
     :return: neuron_morphology Morphology object in micron units
     """
     anisotropy_value = query_for_z_resolution(specimen_id)
-    for no in morph.nodes():
-        no['x'] = no['x']*0.1144
-        no['y'] = no['y']*0.1144
-        no['z'] = no['z']*anisotropy_value
-    return morph
+    scale_list = [0.1144,0,0,  0,0.1144,0,   0,0,anisotropy_value,   0,0,0] 
+    scale_transform = AffineTransform.from_list(scale_list)
+    scaled_morph = scale_transform.transform_morphology(morph) # if you need the original object to remain unchanged do morph.clone()
+
+    return scaled_morph
