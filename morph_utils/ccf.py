@@ -2,7 +2,7 @@ import sqlalchemy
 import pandas as pd
 import os
 import SimpleITK as sitk
-from morph_utils.lims_query import get_id_by_name
+from morph_utils.query import get_id_by_name
 
 
 def get_soma_structure_and_coords(prints=False):

@@ -5,7 +5,7 @@ from scipy.spatial.distance import euclidean
 from neuron_morphology.morphology import Morphology
 from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
-from morph_utils.lims_query import query_for_z_resolution
+from morph_utils.query import query_for_z_resolution
 
 
 def generate_irreducible_morph(morph):

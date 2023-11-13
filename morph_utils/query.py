@@ -1,35 +1,27 @@
+import os
+import allensdk.internal.core.lims_utilities as lu
+from functools import partial
 
-import psycopg2
+def default_query_engine():
+    """Get Postgres query engine with environmental variable parameters"""
 
-CONNECTION_STRING = 'host=limsdb2 dbname=lims2 user=limsreader password=limsro'
+    return partial(
+        lu.query,
+        host=os.getenv("LIMS_HOST"),
+        port=5432,
+        database=os.getenv("LIMS_DBNAME"),
+        user=os.getenv("LIMS_USER"),
+        password=os.getenv("LIMS_PASSWORD")
+    )
 
-def query(sql, args):
-    """
-    Query LIMS
-
-    :param sql: SQL command
-    :param args: params for SQL command
-    :return: query result
-    """
-    conn = psycopg2.connect(CONNECTION_STRING)
-    cur = conn.cursor()
-
-    cur.execute(sql, args)
-    results = cur.fetchall()
-
-    cur.close()
-    conn.close()
-
-    return results
-
-
-def get_name_by_id(specimen_id):
+def get_name_by_id(specimen_id, query_engine=None):
     """
     Get cell name from id
 
     :param specimen_id: cell specimen id
     :return: cell specimen name 
     """
+    if query_engine is None: query_engine = default_query_engine()
 
     sql = """
     SELECT sp.name as sp, sp.id
@@ -37,16 +29,17 @@ def get_name_by_id(specimen_id):
     WHERE sp.id = '{}'
     """.format(specimen_id)
     
-    x = query(sql, ())[0][0]
+    x = query_engine(sql)[0]['sp']
     return x
 
-def get_id_by_name(specimen_name):
+def get_id_by_name(specimen_name, query_engine=None):
     """
     Get cell id from name
 
     :param specimen_name: cell specimen name
     :return: cell specimen id 
     """
+    if query_engine is None: query_engine = default_query_engine()
 
     sql = """
     SELECT sp.name as sp, sp.id
@@ -54,17 +47,18 @@ def get_id_by_name(specimen_name):
     WHERE sp.name = '{}'
     """.format(specimen_name)
     
-    x = query(sql, ())[0][1]
+    x = query_engine(sql)[0]['id']
     return x
 
 #convert px -> um 
-def query_for_z_resolution(specimen_id):
+def query_for_z_resolution(specimen_id, query_engine=None):
     """
     Get resolution of z slice axis for a cell. 
 
     :param specimen_id: cell specimen id
     :return: z axis resolution
     """
+    if query_engine is None: query_engine = default_query_engine()
      
     sql = """
     select ss.id, ss.name, shs.thickness from specimens ss
@@ -74,8 +68,8 @@ def query_for_z_resolution(specimen_id):
     where ss.id = {}
     """.format(specimen_id)
     
-    res = query(sql,())
+    res = query_engine(sql)
     try:
-        return res[0][-1]
+        return res[0]['thickness']
     except:
         return None
