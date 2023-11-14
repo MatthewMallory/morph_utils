@@ -78,6 +78,7 @@ def get_structures(query_engine=None):
     """
     Get structure information (from LIMS)
     
+    :return: list of dicts with info for each brain structure
     """
     if query_engine is None: 
         query_engine = default_query_engine()
@@ -87,10 +88,11 @@ def get_structures(query_engine=None):
 
     return structures
 
-def get_ccf_pins(query_engine=None):
+def query_pinning_info_cell_locator(query_engine=None):
     """
-    Get CCF pins 
+    Get CCF pins made with Cell Locator tool (starting mid 2022)
     
+    :return: list of dicts containing pins for each slide
     """
     if query_engine is None: 
         query_engine = default_query_engine()
@@ -99,3 +101,35 @@ def get_ccf_pins(query_engine=None):
     pins = query_engine(sql)
 
     return pins
+
+
+def query_pinning_info(project_codes=["T301", "T301x", "mIVSCC-MET"], query_engine=None):
+    """
+    Get the pinned CCF coordinates for a set of projects. 
+    (pre switch to Cell Locator tool mid 2022) 
+    """
+    if query_engine is None:
+        query_engine = default_query_engine()
+
+    project_codes_str = ", ".join([f"'{s}'" for s in project_codes])
+    query = f"""
+        select distinct
+            sp.id as specimen_id,
+            csl.x as x,
+            csl.y as y,
+            csl.z as z,
+            slice.id as slice_id,
+            slab.id as slab_id,
+            brain.id as brain_id,
+            a3d.*
+        from specimens sp
+        join specimens slice on slice.id = sp.parent_id
+        join specimens slab on slab.id = slice.parent_id
+        join specimens brain on brain.id = slab.parent_id
+        join alignment3ds a3d on slice.alignment3d_id = a3d.id
+        join projects prj on prj.id = sp.project_id
+        left join cell_soma_locations csl on sp.id = csl.specimen_id
+        where prj.code in ({project_codes_str})
+    """
+    results = query_engine(query)
+    return results

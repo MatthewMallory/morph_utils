@@ -1,15 +1,15 @@
 import os
 import pandas as pd
+from importlib.resources import files
 import SimpleITK as sitk
-from morph_utils.query import get_id_by_name, get_structures, get_ccf_pins
+from morph_utils.query import get_id_by_name, get_structures, query_pinning_info_cell_locator
 
 def open_ccf_annotation(annotation_path=None):
     """
         Open up CCF annotation volume
-
     """
     if annotation_path is None: 
-        annotation_path =  '.\data\ccf_annotation\annotation_10.nrrd'
+        annotation_path =  files('morph_utils') / 'data/annotation_10.nrrd'
 
     annotation_file = os.path.join(annotation_path)
     annotation = sitk.ReadImage( annotation_file )
@@ -17,7 +17,16 @@ def open_ccf_annotation(annotation_path=None):
     return annotation
 
 
-def process_json( slide_specimen_id, jblob, annotation, structures, prints=False) :
+def process_pin_jblob( slide_specimen_id, jblob, annotation, structures, prints=False) :
+    """
+    Get CCF coordinates and structure for pins made with Cell Locator tool (starting mid 2022).
+
+    :param slide_specimen_id: id of slide containing pins
+    :param jblob: dictionary of pins for this slide made with the Cell Locator tool
+    :param annotation: CCF annotation volume
+    :param structures: DataFrame of all structures in CCF
+    :return: list of dicts containing CCF location and structure of each pin in this slide
+    """
     
     locs = []
     
@@ -81,7 +90,14 @@ def process_json( slide_specimen_id, jblob, annotation, structures, prints=False
     return locs
 
 
-def get_soma_structure_and_coords():
+def get_soma_structure_and_ccf_coords():
+    """
+    Get CCF location and structure of all pins (somas and fiducials) 
+    made with Cell Locator tool (starting mid 2022).
+
+    :return: DataFrame containing CCF x,y,z coords and structure for all pins 
+    """
+
     # (1) Get structure information from LIMS - this is only needed for validataion
     structures = get_structures()
     structures = pd.DataFrame.from_dict(structures)
@@ -90,15 +106,15 @@ def get_soma_structure_and_coords():
     # (2) Open up CCF annotation volume
     annotation = open_ccf_annotation()
 
-    # (3) Get json blob of the cells to be matched
-    pins = get_ccf_pins()
+    # (3) Get json blobs (pin info) for all slides that have pins with Cell Locator tool
+    pins = query_pinning_info_cell_locator()
     pins = pd.DataFrame.from_dict(pins)
 
-    # (4) For each cell, convert Cell Locator to CCF coordinates and find annotation
+    # (4) For each cell, convert Cell Locator to CCF coordinates and find structure using CCF annotation
     cell_info = []
     for index, row in pins.iterrows() :    
         jblob = row['data']
-        processed = process_json( row['specimen_id'], jblob, annotation, structures )
+        processed = process_pin_jblob( row['specimen_id'], jblob, annotation, structures )
         cell_info.extend(processed)
 
     # (5) Return output as DataFrame

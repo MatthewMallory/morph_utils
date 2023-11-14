@@ -1,4 +1,5 @@
 import pandas as pd
+from importlib.resources import files
 
 #MOUSE 
 
@@ -10,10 +11,10 @@ def get_mouse_color_dict(path):
     color_dict = dict(zip(color_keys,color_values))
     return color_dict
 
-mouse_colors_subclass =   get_mouse_color_dict('.\data\color_palettes\mouse\AIT21.0_colors_subclass.csv')
-mouse_colors_supertype =  get_mouse_color_dict('.\data\color_palettes\mouse\AIT21.0_colors_supertype.csv')
-mouse_colors_cluster =    get_mouse_color_dict('.\data\color_palettes\mouse\AIT21.0_colors_cluster.csv')
-mouse_colors_cluster_wb = get_mouse_color_dict('.\data\color_palettes\mouse\WB_colorpal_cluster.csv')
+mouse_colors_subclass =   get_mouse_color_dict(files('morph_utils') / 'data/AIT21.0_colors_subclass.csv')
+mouse_colors_supertype =  get_mouse_color_dict(files('morph_utils') / 'data/AIT21.0_colors_supertype.csv')
+mouse_colors_cluster =    get_mouse_color_dict(files('morph_utils') / 'data/AIT21.0_colors_cluster.csv')
+mouse_colors_cluster_wb = get_mouse_color_dict(files('morph_utils') / 'data/WB_colorpal_cluster.csv')
 
 #NHP
 

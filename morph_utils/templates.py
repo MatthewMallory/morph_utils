@@ -1,5 +1,6 @@
 import json
 import numpy as np
+from importlib.resources import files
 
 def load_layer_template(species):
     """ Load the average cortical layer depth JSON file for a species.
@@ -16,7 +17,7 @@ def load_layer_template(species):
     """
     
     #average layer depths 
-    depth_file = "./data/layer_templates/{}_average_layer_depths.json".format(species)
+    depth_file = files('morph_utils') / 'data/{}_average_layer_depths.json'.format(species)
     with open(depth_file, "r") as fn: 
         layers = json.load(fn)
 
@@ -31,4 +32,8 @@ def load_layer_template(species):
     layer_names = ['L' + l for l in layer_keys[:-1]]
     labels = dict(zip(layer_names, layer_midpoints))
 
-    return layers, labels, colors
+    layer_dict = {'layers': layers, 
+                  'labels': labels, 
+                  'colors': colors}
+
+    return layer_dict 
