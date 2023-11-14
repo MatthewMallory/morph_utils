@@ -4,7 +4,9 @@ from collections import deque
 from scipy.spatial.distance import euclidean
 from neuron_morphology.morphology import Morphology
 from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
+from neuron_morphology.transforms.affine_transform import AffineTransform
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
+from morph_utils.query import query_for_z_resolution
 
 
 def generate_irreducible_morph(morph):
@@ -393,3 +395,33 @@ def re_root_morphology(new_start_node, morphology):
                            parent_id_cb=lambda x: x['parent'])
 
     return new_morph
+
+
+def normalize_position(morph): 
+    """
+    Shift morphology position so the soma is at 0,0,0
+
+    :param morph: neuron_morphology Morphology object
+    :return: noramlized neuron_morphology Morphology object 
+    """
+    soma = morph.get_soma()
+    trans_list = [1,0,0, 0,1,0, 0,0,1, -soma['x'],-soma['y'],-soma['z']]
+    translate_transform= AffineTransform.from_list(trans_list)
+    moved_morph = translate_transform.transform_morphology(morph) # if you need the original object to remain unchanged do morph.clone()
+
+    return moved_morph
+
+def convert_pixel_to_um(morph, specimen_id):
+    """
+    Convert morphology units from pixel to micron. 
+
+    :param morph: neuron_morphology Morphology object in pixel units
+    :param specimen_id: cell specimen id
+    :return: neuron_morphology Morphology object in micron units
+    """
+    anisotropy_value = query_for_z_resolution(specimen_id)
+    scale_list = [0.1144,0,0,  0,0.1144,0,   0,0,anisotropy_value,   0,0,0] 
+    scale_transform = AffineTransform.from_list(scale_list)
+    scaled_morph = scale_transform.transform_morphology(morph) # if you need the original object to remain unchanged do morph.clone()
+
+    return scaled_morph
