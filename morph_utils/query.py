@@ -73,3 +73,29 @@ def query_for_z_resolution(specimen_id, query_engine=None):
         return res[0]['thickness']
     except:
         return None
+
+def get_structures(query_engine=None):
+    """
+    Get structure information (from LIMS)
+    
+    """
+    if query_engine is None: 
+        query_engine = default_query_engine()
+
+    sql = """SELECT * FROM structures where ontology_id = 1"""
+    structures = query_engine(sql)
+
+    return structures
+
+def get_ccf_pins(query_engine=None):
+    """
+    Get CCF pins 
+    
+    """
+    if query_engine is None: 
+        query_engine = default_query_engine()
+
+    sql = """SELECT sm.* FROM specimen_metadata sm WHERE sm.current = 't' AND sm.kind = 'IVSCC tissue review'"""
+    pins = query_engine(sql)
+
+    return pins
