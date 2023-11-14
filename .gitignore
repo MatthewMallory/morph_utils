@@ -2,6 +2,7 @@ morph_utils/__pycache__/**
 *.pyc
 .eggs/
 .idea/
+.vscode/
 morph_utils/__pycache__/graph_traversal.cpython-37.pyc
 
 
