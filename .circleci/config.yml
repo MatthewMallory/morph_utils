@@ -20,9 +20,6 @@ jobs:
             source activate build_env
             set -e 
             pytest tests/
-       - store_artifacts:
-          path: test-reports
-          destination: test-reports
 
 workflows:
   test-install:
