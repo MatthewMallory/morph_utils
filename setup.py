@@ -8,9 +8,14 @@ with open(readme_path, "r") as readme_file:
 with open('requirements.txt', 'r') as f:
     required = f.read().splitlines()
 
+with open("morph_utils/__init__.py") as f:
+    for line in f:
+        if line.startswith("__version__"):
+            version = line.split('"')[1]
+
 setup(
     name = 'morph_utils',
-    version = '0.1.2',
+    version = version,
     description = "Functions for common and not so common morphology operations",
     long_description=readme,
     author = "Matthew Mallory",
