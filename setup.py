@@ -19,5 +19,6 @@ setup(
     packages = find_packages(),
     install_requires = required,
     include_package_data=True,
+    package_data={"morph_utils": ["data/*"]},
     setup_requires=['pytest-runner'],
 )

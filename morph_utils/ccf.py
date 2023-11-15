@@ -4,7 +4,7 @@ from importlib.resources import files
 import SimpleITK as sitk
 from morph_utils.query import get_id_by_name, get_structures, query_pinning_info_cell_locator
 
-def open_ccf_annotation(annotation_path=None):
+def open_ccf_annotation(annotation_path=None, as_array=False):
     """
         Open up CCF annotation volume
     """
@@ -13,8 +13,29 @@ def open_ccf_annotation(annotation_path=None):
 
     annotation_file = os.path.join(annotation_path)
     annotation = sitk.ReadImage( annotation_file )
-    
+    if as_array:
+        return sitk.GetArrayFromImage(annotation)
     return annotation
+
+def load_structure_graph():
+    """
+        Open up CCF structure graph data frame from disk
+
+        typical protocol would be:
+        cache = ReferenceSpaceCache(
+        manifest=os.path.join("allen_ccf", "manifest.json"),  # downloaded files are stored relative to here
+        resolution=10,
+        reference_space_key="annotation/ccf_2017"  # use the latest version of the CCF
+        )
+        rsp = cache.get_reference_space()
+        sg = rsp.remove_unassigned()
+        sg_df = pd.DataFrame.from_records(sg)
+
+    """
+    sg_path =  files('morph_utils') / 'data/ccf_structure_graph.csv'
+    df = pd.read_csv(sg_path)
+    
+    return df
 
 
 def process_pin_jblob( slide_specimen_id, jblob, annotation, structures, prints=False) :
