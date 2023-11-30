@@ -22,15 +22,18 @@ jobs:
         run: |
           git config --global user.email "${{ secrets.GH_ORG_EMAIL }}"
           git config --global user.name "${{ secrets.GH_ORG_NAME }}"
+      - name: Install bumpversion
+        run: |
+          pip install bumpversion
       - name: Apply version bump (major)
         if: contains(github.event.pull_request.labels.*.name, 'major')
-        run: npm version major
+        run: bumpversion major
       - name: Apply version bump (minor)
         if: contains(github.event.pull_request.labels.*.name, 'minor')
-        run: npm version minor
+        run: bumpversion minor
       - name: Apply version bump (patch)
         if: contains(github.event.pull_request.labels.*.name, 'patch')
-        run: npm version patch
+        run: bumpversion patch
       - name: Git push version bump
         run: git push origin dev --follow-tags --force
       - id: set-version
