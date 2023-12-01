@@ -133,3 +133,22 @@ def query_pinning_info(project_codes=["T301", "T301x", "mIVSCC-MET"], query_engi
     """
     results = query_engine(query)
     return results
+
+def get_swc_from_lims(specimen_id, query_engine=None):
+
+    if query_engine is None:
+        query_engine = default_query_engine()
+
+    query = "SELECT f.filename, f.storage_directory FROM \
+     neuron_reconstructions n JOIN well_known_files f ON n.id = f.attachable_id \
+     AND n.specimen_id = {} AND n.manual AND NOT n.superseded AND f.well_known_file_type_id = 303941301".format(specimen_id)
+    
+    result = query_engine(query)
+
+    if result is None:
+        raise("No SWC file found for specimen ID {}".format(specimen_id))
+        
+    swc_filename = result[0]['filename']
+    swc_path = result[0]['storage_directory'] + swc_filename
+
+    return swc_filename, swc_path
