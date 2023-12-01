@@ -9,6 +9,7 @@ on:
       - unlabeled
 jobs:
   check_labels:
+    permissions: write-all
     name: 'Check PR Labels'
     runs-on: ubuntu-latest
     steps:
