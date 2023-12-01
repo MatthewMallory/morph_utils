@@ -7,6 +7,7 @@ on:
       - opened
 jobs:
   add_comment:
+    permissions: write-all
     name: 'Add Comment'
     runs-on: ubuntu-latest
     steps:
