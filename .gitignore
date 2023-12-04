@@ -1,5 +1,8 @@
 morph_utils/__pycache__/**
 *.pyc
+*.ipynb
+*.csv
+*.swc
 .eggs/
 .idea/
 .vscode/
