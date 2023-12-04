@@ -57,7 +57,7 @@ def main(swc_input_directory, soma_child_distance_threshold, report_csv, use_mul
 
 def console_script():
     module = ags.ArgSchemaParser(schema_type=IO_Schema)
-    main(module.args)
+    main(**module.args)
 
 
 if __name__ == "__main__":

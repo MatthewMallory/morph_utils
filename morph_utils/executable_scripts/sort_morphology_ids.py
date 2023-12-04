@@ -63,7 +63,7 @@ def main(swc_input_directory, swc_output_directory, check_for_duplicate_somas, u
 
 def console_script():
     module = ags.ArgSchemaParser(schema_type=IO_Schema)
-    main(module.args)
+    main(**module.args)
 
 
 if __name__ == "__main__":

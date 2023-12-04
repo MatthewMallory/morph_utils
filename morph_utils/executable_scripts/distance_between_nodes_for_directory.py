@@ -70,7 +70,7 @@ def main(swc_input_directory, output_file, compartment_types, use_multiprocessin
 
 def console_script():
     module = ags.ArgSchemaParser(schema_type=IO_Schema)
-    main(module.args)
+    main(**module.args)
 
 
 if __name__ == "__main__":
