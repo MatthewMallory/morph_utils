@@ -9,7 +9,7 @@ class TestImportFunctions(unittest.TestCase):
 
         sg_df = load_structure_graph()
         self.assertTrue(not sg_df.empty)
-        # annotation_array = open_ccf_annotation(as_array=True)
+        annotation_array = open_ccf_annotation(with_nrrd=False)
         # self.assertTrue(isinstance(annotation_array, np.ndarray))
 
 if __name__ == '__main__':

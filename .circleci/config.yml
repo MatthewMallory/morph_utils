@@ -4,6 +4,7 @@ jobs:
   install_and_run_tests:
     docker:
       - image: continuumio/miniconda3:4.7.12
+    resource_class: large
     working_directory: ~/repo
     steps:
       - checkout
@@ -19,7 +20,7 @@ jobs:
           command: |
             source activate build_env
             set -e 
-            pytest tests/
+            pytest tests --tb=no
 
 workflows:
   test-install:

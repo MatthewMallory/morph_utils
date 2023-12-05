@@ -221,7 +221,7 @@ def main(swc_input_directory, swc_output_directory, qc_image_output_directory, u
 
 def console_script():
     module = ags.ArgSchemaParser(schema_type=IO_Schema)
-    main(module.args)
+    main(**module.args)
 
 if __name__ == "__main__":
     module = ags.ArgSchemaParser(schema_type=IO_Schema)
