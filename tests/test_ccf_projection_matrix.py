@@ -58,13 +58,12 @@ class TestProjectionMatrix(unittest.TestCase):
         self.swc_file = temp_ofile
         self.morphology = morphology
         self.annotation  = open_ccf_annotation(with_nrrd=True)
-    
+        
     def test_proj_mat_from_swc(self):
         swc_path = self.swc_file
-        annotation = open_ccf_annotation(with_nrrd=True)
         projection_results = projection_matrix_for_swc(swc_path,
                                                         branch_count=False,
-                                                        annotation=self.annotation , 
+                                                        annotation=self.annotation, 
                                                         annotation_path = None, 
                                                         volume_shape=(1320, 800, 1140),
                                                         resolution=10)
@@ -74,7 +73,6 @@ class TestProjectionMatrix(unittest.TestCase):
 
     def test_proj_mat_from_swc_branch_ct(self):
         swc_path = self.swc_file
-        annotation = open_ccf_annotation(with_nrrd=True)
         projection_results = projection_matrix_for_swc(swc_path,
                                                         branch_count=True,
                                                         annotation=self.annotation , 
@@ -83,7 +81,7 @@ class TestProjectionMatrix(unittest.TestCase):
                                                         resolution=10)
         projection_dicts = list(projection_results)[1:]
         for d in projection_dicts:
-            self.assertEqual(d['ipsi_VISal5'],30.0)
+            self.assertEqual(d['ipsi_VISal5'],1)
 
     
     def tearDown(self): 

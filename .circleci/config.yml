@@ -19,7 +19,7 @@ jobs:
           command: |
             source activate build_env
             set -e 
-            pytest tests/
+            pytest tests --tb=no
 
 workflows:
   test-install:
