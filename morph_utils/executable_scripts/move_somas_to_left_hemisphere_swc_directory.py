@@ -8,7 +8,7 @@ from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
 
 class IO_Schema(ags.ArgSchema):
     input_ccf_swc_directory = ags.fields.InputDir(description='directory with micron resolution ccf registered files')
-    output_ccf_swc_directory = ags.fields.OutputFile(description="output directory for swc files")
+    output_ccf_swc_directory = ags.fields.OutputDir(description="output directory for swc files")
     resolution = ags.fields.Int(default=10, description="Optional. ccf resolution (micron/pixel")
     volume_shape = ags.fields.List(ags.fields.Int, default=[1320, 800, 1140], description = "Optional. Size of input annotation")
 
