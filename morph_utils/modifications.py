@@ -7,6 +7,193 @@ from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
 from neuron_morphology.transforms.affine_transform import AffineTransform
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
 from morph_utils.query import query_for_z_resolution
+from scipy import interpolate
+from copy import copy
+
+def resample_3d_points(points, spacing):
+    """
+    Resample points at a given spacing. Will include the first and last points provided in points. 
+    
+
+    Args:
+        points (nxm np array): must have at least two data points. 
+        spacing (float): desired spacing to resample data points. Must be positive number greater than zero
+
+    Returns:
+        np array: resampled numpy array
+    """
+    # Extract x, y, and z coordinates from the points array
+    x = points[:, 0]
+    y = points[:, 1]
+    z = points[:, 2]
+
+    # Calculate the cumulative distance along the curve
+    cumulative_distance = np.cumsum(np.sqrt(np.diff(x)**2 + np.diff(y)**2 + np.diff(z)**2))
+    cumulative_distance = np.insert(cumulative_distance, 0, 0)  # Add a zero at the beginning
+
+    # Create an interpolation function for each coordinate
+    interpolate_x = interpolate.interp1d(cumulative_distance, x, kind='linear', fill_value="extrapolate")
+    interpolate_y = interpolate.interp1d(cumulative_distance, y, kind='linear', fill_value="extrapolate")
+    interpolate_z = interpolate.interp1d(cumulative_distance, z, kind='linear', fill_value="extrapolate")
+
+    # Create a new set of distances with the desired spacing
+    new_distances = np.arange(0, cumulative_distance[-1], spacing)
+
+    # Interpolate the coordinates at the new distances
+    new_x = interpolate_x(new_distances)
+    new_y = interpolate_y(new_distances)
+    new_z = interpolate_z(new_distances)
+
+    # Create the resampled array
+    resampled_array = np.column_stack((new_x, new_y, new_z))
+
+    if len(resampled_array)==1:
+        # the desired spacing was larger than the max extend between the start and finish nodes of this segment,
+        # so just return those
+        return np.vstack([points[0],points[-1]])
+    
+    return np.vstack([resampled_array, points[-1]])
+
+
+def resample_morphology(morph, spacing_size):
+    """
+    Will resample the spacing between ancestor-descendant irreducible node pairs. In this function, 
+    we consider irreducible nodes to be leaf nodes, branch nodes and the immediate children of the soma.
+    The immediate children of the soma are considered irreducible so that resampling does not 
+    occur between the soma and it's first descendant because this space should be occupied by 
+    the somas' radius. 
+    
+    If the spacing_size is larger than the distance between a given pair of ancestor-descendant 
+    irreducible nodes, only the irreducible nodes will remain in the morphology. 
+    
+    Args:
+        morph (neuron_morphology.Morphology): input morphology
+        spacing_size (float): desired spacing between nodes. 
+    """
+    # irreducible_node_ids = set([n['id'] for n in morph.nodes() if (n['parent']==-1) or (len(morph.get_children(n)) !=1 ) ])
+    # leaf_ids = set([n['id'] for n in morph.get_leaf_nodes()])
+
+
+    # iterate over roots so this can handle autotrace cells that have multiple roots (disconnected segments)
+    roots = [n for n in morph.nodes() if n['parent']==-1 and n['type']==1]
+    roots = roots + [n for n in morph.nodes() if n['parent']==-1 and n['type']!=1]
+    new_nodes = []
+    node_ct = 1
+
+    old_irr_id_to_new_irr_id_dict = {}
+    for root in roots:
+        new_root = copy(root)
+        new_root['id'] = node_ct
+        new_nodes.append(new_root)
+        old_irr_id_to_new_irr_id_dict[root['id']]=new_root['id']
+        this_roots_children = morph.get_children(root)
+        for child in this_roots_children:
+            
+            node_ct+=1
+            new_child = copy(child)
+            new_child['parent'] = new_root['id']
+            new_child['id'] = node_ct
+            new_nodes.append(new_child)
+            old_irr_id_to_new_irr_id_dict[child['id']]=new_child['id']
+                    
+            # get a list of lists where each sublist is a list of nodes connecting two irreducible 
+            # nodes. The first node will be the upstream irreducible node and the last node will be the
+            # descendant irreducible node.
+            this_list = []
+            irreducible_segments = []
+            queue = deque([child])
+            seen_ids = set()
+            while len(queue) > 0:
+                
+                current_node = queue.popleft() 
+                
+                parent = morph.node_by_id(current_node['parent'])
+                siblings = morph.get_children(parent)
+                if len(siblings)>1 and parent['id'] in seen_ids:
+                    if parent['id']!=morph.get_soma()['id']:
+                        this_list.append(parent)
+                    
+                this_list.append(current_node)
+                seen_ids.update([current_node['id']])
+                children_list = morph.get_children(current_node)
+                if len(children_list)!=1:
+                    irreducible_segments.append(this_list)
+                    this_list = []
+                
+                for ch_no in children_list:
+                    queue.appendleft(ch_no)
+
+
+            already_seen_irr_node_ids = set()
+            for sublist in irreducible_segments:
+                # get the ancestor and descendant irreducible nodes
+                irr_node_1 = sublist[0]
+                irr_node_2 = sublist[-1]
+                                
+                segment_arr = np.array([[n['x'],n['y'],n['z']] for n in sublist])
+                segment_arr_resamp = resample_3d_points(segment_arr, spacing_size)
+                reducible_arr = segment_arr_resamp[1:-1]
+                
+                # determine what node id the first reducible node should point to                
+                if irr_node_1['id'] in already_seen_irr_node_ids:
+                    
+                    # we have recursed back up the tree to go down a different branch
+                    # we need our first reducible node to point to the new id assigned 
+                    # to irr_node_1 when we saw it first in a previous iteration
+                    red_1_parent_id = old_irr_id_to_new_irr_id_dict[irr_node_1['id']]
+                    
+                else:
+                    # we have not recured, still moving down a segment in dfs.
+                    red_1_parent_id = node_ct
+                    
+                # setup an equivalent index and step size to make sure
+                # that we are using approriate radius information 
+                # in the resampled morphology. 
+                step_size = len(segment_arr)/len(segment_arr_resamp)
+                equiv_idx = 0
+                for new_coord_ct, c in enumerate(reducible_arr):
+
+                    equiv_node = sublist[equiv_idx]
+                    node_ct+=1
+                    if new_coord_ct==0:
+                        parent_id = red_1_parent_id
+                    else:
+                        parent_id = node_ct-1
+                    new_node = {
+                        "x":c[0],
+                        "y":c[1],
+                        "z":c[2],
+                        'id':node_ct,
+                        "type":equiv_node['type'],
+                        "radius":equiv_node["radius"],
+                        "parent":parent_id,
+                    }
+                    new_nodes.append(new_node)
+                    
+                    equiv_idx+=step_size
+                    equiv_idx = np.math.floor(equiv_idx)
+                            
+                            
+                node_ct+=1
+                new_node_2 = copy(irr_node_2)
+                if len(reducible_arr)==0:
+                    new_node_2['parent'] = red_1_parent_id
+                else:
+                    new_node_2['parent'] = node_ct-1
+                new_node_2['id']=node_ct
+                new_nodes.append(new_node_2)
+                
+                old_irr_id_to_new_irr_id_dict[irr_node_2['id']] = new_node_2['id']
+                
+                already_seen_irr_node_ids.update([irr_node_1['id']])
+
+                
+
+        resampled_morph = Morphology(new_nodes,
+                parent_id_cb=lambda x:x['parent'],
+                node_id_cb=lambda x:x['id'])
+        
+    return resampled_morph
 
 
 def generate_irreducible_morph(morph):

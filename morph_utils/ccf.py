@@ -33,7 +33,7 @@ def open_ccf_annotation(with_nrrd, annotation_path=None):
 
     annotation_file = os.path.join(annotation_path)
     if with_nrrd:
-        annotation, _ = nrrd.read(annotation_file)
+        annotation, _ = nrrd.read(annotation_file,)
     else:
         # I'm not sure if anyones workflows use this so leaving it as an option, but 
         # making with_nrrd a required kwarg
