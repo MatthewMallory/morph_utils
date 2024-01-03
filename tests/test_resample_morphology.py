@@ -66,7 +66,6 @@ class TestResample(unittest.TestCase):
                 "parent":8,
                 },
                 
-                
                 {
                 "x":0,"y":20,"z":0,
                 'id':10,
