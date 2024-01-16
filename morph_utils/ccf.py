@@ -8,6 +8,9 @@ import numpy as np
 import SimpleITK as sitk
 from neuron_morphology.swc_io import morphology_from_swc
 from neuron_morphology.transforms.affine_transform import AffineTransform as aff
+import warnings
+from copy import copy
+import matplotlib.pyplot as plt
 from morph_utils.query import get_id_by_name, get_structures, query_pinning_info_cell_locator
 from morph_utils.measurements import get_node_spacing
 
@@ -391,4 +394,202 @@ def projection_matrix_for_swc(input_swc_file, branch_count, annotation=None,
             if k in branch_and_tip_structures:
                 specimen_projection_summary_branch_and_tip[k] = v * spacing
 
-    return input_swc_file, specimen_projection_summary, specimen_projection_summary_branch_and_tip
+    return input_swc_file, specimen_projection_summary, specimen_projection_summary_branch_and_tip   
+
+ 
+def correct_superficial_nodes_out_of_brain(morphology,
+                                           annotation,
+                                           closest_surface_voxel_file,
+                                           surface_paths_file,
+                                           tree,
+                                           volume_shape=(1320, 800, 1140),
+                                           resolution=10,
+                                           isocortex_struct_id=315,
+                                           generate_plot=True,
+                                           fig_ofile=None,
+                                           ):
+    """
+    This function attempts to correct nodes that appear out of brain due to registrastion
+    issues. This will find the streamline that passes closest to the cells soma and 
+    slide the cell depper along that streamline until stopping conditions have been satisifed.
+    Where stopping conditions are either all the nodes are in the brain, or the cell has been
+    pushed to the bottom of the streamline. 
+    
+    NOTE: this function should only be used on local morphologies. It is not recommended to apply this
+    function to the entire cell. This function is on attempting to fix local issues for more accurate 
+    local feature calcualtion. Local morphologies can be generated from:
+    skeleton_keys.full_morph.local_crop_cortical_morphology 
+    or 
+    morph_utils.executable_scripts.local_crop_ccf_swc_directory)
+    
+    Args:
+        morphology (neuron_morphology.Morphology): A LOCAL morphology (derived from full_morph.local_crop_cortical_morphology or morph_utils.executable_scripts.local_crop_ccf_swc_directory)
+        annotation (3d np.array): ccf annotation atlas
+        closest_surface_voxel_file (str): path to closest_surface_voxel_file
+        surface_paths_file (str):  path to surface_paths_file
+        tree (_type_): allensdk reference space tree
+        volume_shape (tuple, optional): shape of annotation. Defaults to (1320, 800, 1140).
+        resolution (int, optional): resolution of atlas. Defaults to 10.
+        isocortex_struct_id (int, optional): structure id for isocortex. Defaults to 315.
+        generate_plot (bool, optional): whether to generate qc plots or not. Defaults to True.
+        fig_ofile (str, optional): path to save qc plot at. Defaults to None.
+        
+    Returns:
+        tuple (morphology (neuron_morphology.Morphology), move_bool) return morphology and bool
+        indicating if the morphology was moved
+    """
+    
+    
+    from sklearn.neighbors import KDTree
+    try:   
+        from skeleton_keys import full_morph
+    except ImportError:
+        msg = """
+        Required module (skeleton_keys.full_morph) is not installed. It's possible you have skeleton_keys installed
+        but not the correct branch/version. As of 12/22/23 the full_morph branch has not been merged into the main 
+        branch of skeleton_keys so check the full_morph-MM-edits branch for the full_morph features used in this code.
+        This module is only needed for the function morph_utils.ccf.correct_superficial_nodes_out_of_brain. If you are
+        not using this function, no need to install skeleton-keys.
+        """
+        warnings.warn(msg)
+    try:
+        from ccf_streamlines.angle import find_closest_streamline
+    except ImportError:
+        msg = """
+        ccf_streamlines is required for this function. Please reference the link below for installation.
+        
+        https://github.com/AllenInstitute/ccf_streamlines
+        """
+        warnings.warn(msg)
+
+    
+    
+    
+    morph = morphology.clone()
+    
+    morph_coords = np.array([ [n['x'], n['y'], n['z'] ] for n in morph.nodes()])
+    morph_voxels = coordinates_to_voxels(morph_coords)
+    out_of_brain_voxels = [v for v in morph_voxels if annotation[v[0],v[1],v[2]] == 0]  
+    
+    if not out_of_brain_voxels:
+        return morph,False
+    else:
+        
+        # find the streamline closest to the soma
+        # if the cells soma is in WM like some deep L6bs, 
+        # we cannot push the cell any deeper. This approach uses streamlines
+        # and streamlines do not extend into WM so we do not have an orientation on
+        # how to push those cells. 
+        cells_soma = morph.get_soma()
+        soma_arr = np.array([cells_soma['x'],cells_soma['y'], cells_soma['z']]).reshape(1,3)
+        soma_out_of_cortex_bool, nearest_cortex_coord = full_morph.check_coord_out_of_cortex(soma_arr,
+                                                                                    isocortex_struct_id,
+                                                                                    atlas_volume=annotation,
+                                                                                    closest_surface_voxel_file=closest_surface_voxel_file,
+                                                                                    surface_paths_file=surface_paths_file,
+                                                                                    tree=tree)
+
+        if soma_out_of_cortex_bool:
+            msg = """WARNING: Can not correct out of brain nodes. Unable to identify streamline
+            nearest to the cells soma because the soma is located out of cortex (likely in white matter)
+            """
+            warnings.warn(msg)
+            return morph
+        
+        # original_soma_arr = copy(soma_arr)
+        closest_streamline = find_closest_streamline(soma_arr,
+                            closest_surface_voxel_file,
+                            surface_paths_file,
+                            resolution=(10,10,10),
+                            volume_shape=volume_shape
+                           )
+        
+        streamline_kd_tree = KDTree(closest_streamline)
+
+        # find streamline node closest to the soma
+        dist, streamline_indices = streamline_kd_tree.query(soma_arr)
+        streamline_index = streamline_indices[0][0]
+        nearest_streamline_node = closest_streamline[streamline_index]
+
+        # this transform is what we will apply every step we move down the streamline
+        # so we will move one node down the streamline -> apply this transofrm -> check out of brain nodes -> repeat
+        deltas_from_streamline = soma_arr[0] - nearest_streamline_node
+        dx, dy, dz = deltas_from_streamline[0], deltas_from_streamline[1], deltas_from_streamline[2]
+        aff_from_streamline = [1, 0, 0, 0, 1, 0, 0, 0, 1, dx, dy, dz]
+        offset_transformation = aff.from_list(aff_from_streamline)
+
+
+        # positive 1 to move down/deeper along the streamline
+        index_mover = 1
+
+        stopping_condition = False
+        while stopping_condition == False:
+            
+            # move one streamline 
+            streamline_index += index_mover
+            if streamline_index >= len(closest_streamline)-1:
+                stopping_condition=True
+                warn_msg = """
+                WARNING, cell has been moved to the end of the streamline, but there are still {}
+                nodes out of brain.""".format(len(out_of_brain_voxels))
+                warnings.warn(warn_msg)
+                break
+                
+            current_streamline_node_to_check = closest_streamline[streamline_index]
+
+            # move cell to next streamline
+            deltas_to_current_streamline = current_streamline_node_to_check - soma_arr[0]
+            dx_curr, dy_curr, dz_curr = deltas_to_current_streamline[0], deltas_to_current_streamline[1], deltas_to_current_streamline[2]
+            
+            aff_to_current_streamline = [1, 0, 0, 0, 1, 0, 0, 0, 1, dx_curr, dy_curr, dz_curr]
+
+            # apply offset
+            aff.from_list(aff_to_current_streamline).transform_morphology(morph)
+            offset_transformation.transform_morphology(morph)
+
+            # update soma 
+            this_soma = morph.get_soma()
+            soma_arr = np.array([this_soma['x'], this_soma['y'], this_soma['z']]).reshape(1,3)
+
+            # measure coordinates that are still out of brain
+            this_morph_coords = np.array([ [n['x'], n['y'], n['z'] ] for n in morph.nodes()])
+            this_morph_voxels = coordinates_to_voxels(this_morph_coords)
+            out_of_brain_voxels = [v for v in this_morph_voxels if annotation[v[0],v[1],v[2]] == 0]
+
+            if out_of_brain_voxels == []:
+                stopping_condition = True
+                
+    if generate_plot:
+                
+        streamline_vox = coordinates_to_voxels(closest_streamline)
+        fig,axes=plt.subplots(3,1)
+        crops=[False,True]
+        for axe,crop in zip(axes[:-1],crops):
+            
+            soma_x = soma_arr[0][0]*(1/resolution)
+            soma_y = soma_arr[0][1]*(1/resolution)
+            soma_z = soma_arr[0][2]*(1/resolution)
+            
+            atlas_slice = annotation[int(soma_x),:,:].astype(bool)
+            axe.imshow(atlas_slice)
+            axe.scatter(this_morph_voxels[:,2],this_morph_voxels[:,1],s=0.1)
+            axe.scatter(streamline_vox[:,2],streamline_vox[:,1],s=0.1)
+            axe.scatter(soma_z,soma_y,s=10,c='r',marker='X')
+            if crop:
+                    
+                buff=100
+                axe.set_xlim(soma_z-buff,soma_z+buff)
+                axe.set_ylim(soma_y-buff,soma_y+buff)
+
+        axe = axes[2]
+        axe.scatter(morph_voxels[:,2],this_morph_voxels[:,1],s=0.5,alpha=0.75,label='original morph')
+        axe.scatter(this_morph_voxels[:,2],this_morph_voxels[:,1],s=0.5,alpha=0.75,label='moved morph')
+        axe.plot(streamline_vox[:,2],streamline_vox[:,1],lw=3,c='g')
+        axe.legend()
+        axe.set_aspect('equal')
+        fig.set_size_inches(5,12)   
+        if fig_ofile is not None:
+            fig.savefig(fig_ofile,dpi=300,bbox_inches='tight')
+        plt.clf()
+       
+    return morph, True
