@@ -6,3 +6,4 @@ matplotlib
 scikit-learn
 neuron_morphology
 pytest
+pyodbc
