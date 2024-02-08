@@ -32,8 +32,4 @@ def load_layer_template(species):
     layer_names = ['L' + l for l in layer_keys[:-1]]
     labels = dict(zip(layer_names, layer_midpoints))
 
-    layer_dict = {'layers': layers, 
-                  'labels': labels, 
-                  'colors': colors}
-
-    return layer_dict 
+    return layers, labels, colors
