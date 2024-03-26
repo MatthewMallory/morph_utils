@@ -7,6 +7,7 @@ from neuron_morphology.swc_io import morphology_from_swc, morphology_to_swc
 from neuron_morphology.transforms.affine_transform import AffineTransform
 from morph_utils.graph_traversal import dfs_labeling, bfs_tree, get_path_to_root
 from morph_utils.query import query_for_z_resolution
+from morph_utils.measurements import dist_bwn_nodes
 from scipy import interpolate
 from copy import copy
 
@@ -70,9 +71,6 @@ def resample_morphology(morph, spacing_size):
         morph (neuron_morphology.Morphology): input morphology
         spacing_size (float): desired spacing between nodes. 
     """
-    # irreducible_node_ids = set([n['id'] for n in morph.nodes() if (n['parent']==-1) or (len(morph.get_children(n)) !=1 ) ])
-    # leaf_ids = set([n['id'] for n in morph.get_leaf_nodes()])
-
 
     # iterate over roots so this can handle autotrace cells that have multiple roots (disconnected segments)
     roots = [n for n in morph.nodes() if n['parent']==-1 and n['type']==1]
@@ -87,9 +85,10 @@ def resample_morphology(morph, spacing_size):
         new_nodes.append(new_root)
         old_irr_id_to_new_irr_id_dict[root['id']]=new_root['id']
         this_roots_children = morph.get_children(root)
+        node_ct+=1
+          
         for child in this_roots_children:
-            
-            node_ct+=1
+                
             new_child = copy(child)
             new_child['parent'] = new_root['id']
             new_child['id'] = node_ct
@@ -129,11 +128,17 @@ def resample_morphology(morph, spacing_size):
                 # get the ancestor and descendant irreducible nodes
                 irr_node_1 = sublist[0]
                 irr_node_2 = sublist[-1]
-                                
-                segment_arr = np.array([[n['x'],n['y'],n['z']] for n in sublist])
-                segment_arr_resamp = resample_3d_points(segment_arr, spacing_size)
-                reducible_arr = segment_arr_resamp[1:-1]
                 
+                dist_between_irr_nodes = dist_bwn_nodes(irr_node_1, irr_node_2)
+                segment_arr = np.array([[n['x'],n['y'],n['z']] for n in sublist])
+                if (segment_arr.shape[0] > 2) or (dist_between_irr_nodes>spacing_size) :
+                    # resample the segment when there are multiple nodes, or the
+                    # space between the nodes is greater than sampling size
+                    segment_arr_resamp = resample_3d_points(segment_arr, spacing_size)
+                    reducible_arr = segment_arr_resamp[1:-1]
+                else:
+                    reducible_arr = []
+                    
                 # determine what node id the first reducible node should point to                
                 if irr_node_1['id'] in already_seen_irr_node_ids:
                     
@@ -145,34 +150,36 @@ def resample_morphology(morph, spacing_size):
                 else:
                     # we have not recured, still moving down a segment in dfs.
                     red_1_parent_id = node_ct
-                    
-                # setup an equivalent index and step size to make sure
-                # that we are using approriate radius information 
-                # in the resampled morphology. 
-                step_size = len(segment_arr)/len(segment_arr_resamp)
-                equiv_idx = 0
-                for new_coord_ct, c in enumerate(reducible_arr):
+                
+                if len(reducible_arr) != 0:
+                        
+                    # setup an equivalent index and step size to make sure
+                    # that we are using approriate radius information 
+                    # in the resampled morphology. 
+                    step_size = len(segment_arr)/len(segment_arr_resamp)
+                    equiv_idx = 0
+                    for new_coord_ct, c in enumerate(reducible_arr):
 
-                    equiv_node = sublist[equiv_idx]
-                    node_ct+=1
-                    if new_coord_ct==0:
-                        parent_id = red_1_parent_id
-                    else:
-                        parent_id = node_ct-1
-                    new_node = {
-                        "x":c[0],
-                        "y":c[1],
-                        "z":c[2],
-                        'id':node_ct,
-                        "type":equiv_node['type'],
-                        "radius":equiv_node["radius"],
-                        "parent":parent_id,
-                    }
-                    new_nodes.append(new_node)
-                    
-                    equiv_idx+=step_size
-                    equiv_idx = np.math.floor(equiv_idx)
-                            
+                        equiv_node = sublist[equiv_idx]
+                        node_ct+=1
+                        if new_coord_ct==0:
+                            parent_id = red_1_parent_id
+                        else:
+                            parent_id = node_ct-1
+                        new_node = {
+                            "x":c[0],
+                            "y":c[1],
+                            "z":c[2],
+                            'id':node_ct,
+                            "type":equiv_node['type'],
+                            "radius":equiv_node["radius"],
+                            "parent":parent_id,
+                        }
+                        new_nodes.append(new_node)
+                        
+                        equiv_idx+=step_size
+                        equiv_idx = np.math.floor(equiv_idx)
+                                
                             
                 node_ct+=1
                 new_node_2 = copy(irr_node_2)
@@ -187,7 +194,7 @@ def resample_morphology(morph, spacing_size):
                 
                 already_seen_irr_node_ids.update([irr_node_1['id']])
 
-                
+            node_ct+=1    
 
         resampled_morph = Morphology(new_nodes,
                 parent_id_cb=lambda x:x['parent'],
