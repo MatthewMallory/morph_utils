@@ -139,7 +139,9 @@ def get_nhp_cortical_passing(db_file):
                      OR [Pinned Structure and Layer] LIKE 'Ocx%' 
                      OR [Pinned Structure and Layer] LIKE 'V1%' 
                      OR [Pinned Structure and Layer] LIKE 'V2%' 
-                     OR [Pinned Structure and Layer] LIKE 'HIP%');
+                     OR [Pinned Structure and Layer] LIKE 'HIP%'
+                     OR [Pinned Structure and Layer] LIKE 'M1C%'
+                     OR [Pinned Structure and Layer] LIKE 'STG%');
     """
     result = query_access(db_file, query)
     return result
@@ -172,7 +174,6 @@ def get_mouse_passing(db_file):
        [Cell Overall State], 
        Project, 
        [Pinned Structure and Layer], 
-       [Tree Mapping], 
        mouse_wholebrain_mapping
     FROM IVSCCTrackingDatabaseProduction
     WHERE 
@@ -253,8 +254,8 @@ def get_mouse_hpf_passing(db_file):
     query = """
        SELECT 
               [Cell Specimen Id], 
-              Project, 
               [Cell Overall State], 
+              Project, 
               [Pinned Structure and Layer], 
               mouse_wholebrain_mapping
        FROM IVSCCTrackingDatabaseProduction
@@ -303,7 +304,6 @@ def get_mouse_isocortex_passing(db_file):
               [Cell Overall State], 
               Project, 
               [Pinned Structure and Layer], 
-              [Tree Mapping], 
               mouse_wholebrain_mapping
        FROM IVSCCTrackingDatabaseProduction
        WHERE 
