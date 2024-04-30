@@ -268,7 +268,7 @@ def get_ccf_structure(voxel, name_map=None, annotation=None, coordinate_to_voxel
 
 def projection_matrix_for_swc(input_swc_file, branch_count, annotation=None, 
                               annotation_path = None, volume_shape=(1320, 800, 1140),
-                              resolution=10):
+                              resolution=10, node_type_list=[2]):
     """
     Given a swc file, quantify the projection matrix. That is the amount of axon in each structure. This function assumes
     there is equivalent internode spacing (i.e. the input swc file should be resampled prior to running this code). 
@@ -281,6 +281,7 @@ def projection_matrix_for_swc(input_swc_file, branch_count, annotation=None,
         annotation_path (str, optional): path to nrrd file to use (optional). Defaults to None.
         volume_shape (tuple, optional): the size in voxels of the ccf atlas (annotation volume). Defaults to (1320, 800, 1140).
         resolution (int, optional): resolution (um/pixel) of the annotation volume
+        node_type_list (list of ints): node type to extract projection data for, typically axon (2)
         
     Returns:
         filename (str)
@@ -321,7 +322,7 @@ def projection_matrix_for_swc(input_swc_file, branch_count, annotation=None,
     morph = move_soma_to_left_hemisphere(morph, resolution, volume_shape, z_midline)    
     spacing = get_node_spacing(morph)[0]
 
-    nodes_to_annotate = [n for n in morph.nodes() if (n['type'] == 2)]
+    nodes_to_annotate = [n for n in morph.nodes() if (n['type'] in node_type_list)]
     # print("Nodes to annotate before branch filter:")
     # print(len(nodes_to_annotate))
     if branch_count:
