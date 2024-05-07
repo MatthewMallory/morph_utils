@@ -174,7 +174,8 @@ def get_mouse_passing(db_file):
        [Cell Overall State], 
        Project, 
        [Pinned Structure and Layer], 
-       mouse_wholebrain_mapping
+       mouse_wholebrain_mapping,
+       mouse_wholebrain_supertype
     FROM IVSCCTrackingDatabaseProduction
     WHERE 
        (
@@ -206,7 +207,8 @@ def get_mouse_bg_passing(db_file):
               [Cell Overall State],
               Project, 
               [Pinned Structure and Layer], 
-              mouse_wholebrain_mapping
+              mouse_wholebrain_mapping,
+              mouse_wholebrain_supertype
        FROM IVSCCTrackingDatabaseProduction
        WHERE 
               (
@@ -257,7 +259,8 @@ def get_mouse_hpf_passing(db_file):
               [Cell Overall State], 
               Project, 
               [Pinned Structure and Layer], 
-              mouse_wholebrain_mapping
+              mouse_wholebrain_mapping,
+              mouse_wholebrain_supertype
        FROM IVSCCTrackingDatabaseProduction
        WHERE 
        (
@@ -304,7 +307,8 @@ def get_mouse_isocortex_passing(db_file):
               [Cell Overall State], 
               Project, 
               [Pinned Structure and Layer], 
-              mouse_wholebrain_mapping
+              mouse_wholebrain_mapping,
+              mouse_wholebrain_supertype
        FROM IVSCCTrackingDatabaseProduction
        WHERE 
        (
@@ -355,7 +359,8 @@ def get_mouse_thalamus_passing(db_file):
               [Cell Overall State], 
               Project,
               [Pinned Structure and Layer], 
-              mouse_wholebrain_mapping
+              mouse_wholebrain_mapping,
+              mouse_wholebrain_supertype
        FROM IVSCCTrackingDatabaseProduction
        WHERE 
        (
