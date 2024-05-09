@@ -19,6 +19,12 @@ with open(NAME_MAP_FILE, "r") as fn:
     NAME_MAP = json.load(fn)
 NAME_MAP = {int(k):v for k,v in NAME_MAP.items()}
 
+ACR_MAP_FILE = files('morph_utils') / 'data/ccf_structure_acronym_by_id.json'
+with open(ACR_MAP_FILE, "r") as fn: 
+    ACRONYM_MAP = json.load(fn)
+ACRONYM_MAP = {k:int(v) for k,v in ACRONYM_MAP.items()}
+
+
 def open_ccf_annotation(with_nrrd, annotation_path=None):
     """
     Open up CCF annotation volume. Use nrrd to open file to get 3-d array, or set with_nrrd to false 
