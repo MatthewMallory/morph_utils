@@ -295,6 +295,37 @@ def get_mouse_hpf_passing(db_file):
     return result
 
 
+def get_mouse_lc_passing(db_file):
+    """
+    Get mouse cells in locus coeruleus that can be reconstructed. 
+
+    :return: passing mouse cells in locus coeruleus 
+    """
+    query = """
+       SELECT 
+              [Cell Specimen Id], 
+              [Cell Overall State], 
+              Project, 
+              [Pinned Structure and Layer], 
+              mouse_wholebrain_mapping,
+              mouse_wholebrain_supertype
+       FROM IVSCCTrackingDatabaseProduction
+       WHERE 
+       (
+              Project LIKE 'mIVSCC-MET-R01_LC'
+       ) AND 
+       (
+              [Cell Overall State] NOT LIKE 'Deferred' AND 
+              [Cell Overall State] NOT LIKE 'To be%' AND 
+              [Cell Overall State] NOT LIKE 'QC' AND 
+              [Cell Overall State] NOT LIKE 'Failed%' AND 
+              [Cell Overall State] NOT LIKE 'Rescan%'
+       );
+    """
+    result = query_access(db_file, query)
+    return result
+
+
 def get_mouse_isocortex_passing(db_file):
     """
     Get mouse cells in isocortex that can be reconstructed. 
@@ -409,9 +440,11 @@ def get_mouse_other_passing(db_file):
      hpf_passing = get_mouse_hpf_passing(db_file)
      isocortex_passing = get_mouse_isocortex_passing(db_file)
      thalamus_passing = get_mouse_thalamus_passing(db_file)
+     lc_passing = get_mouse_lc_passing(db_file)
      other_passing = passing[~passing['Cell Specimen Id'].isin(bg_passing['Cell Specimen Id']) & 
                              ~passing['Cell Specimen Id'].isin(hpf_passing['Cell Specimen Id']) &
                              ~passing['Cell Specimen Id'].isin(isocortex_passing['Cell Specimen Id']) &
-                             ~passing['Cell Specimen Id'].isin(thalamus_passing['Cell Specimen Id'])]
+                             ~passing['Cell Specimen Id'].isin(thalamus_passing['Cell Specimen Id']) &
+                             ~passing['Cell Specimen Id'].isin(lc_passing['Cell Specimen Id'])]
      
      return other_passing
