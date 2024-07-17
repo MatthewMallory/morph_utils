@@ -16,6 +16,12 @@ def cellheight(morph, compartments=[2, 3, 4]):
     return up + down
 
 
+def celldepth(morph, compartments=[2, 3, 4]):
+    out_extent = outextent(morph, compartments)
+    in_extent = inextent(morph, compartments)
+    return out_extent + in_extent
+
+
 def downextent(morph, compartments=[2, 3, 4]):
     return min([n['y'] - morph.get_soma()['y'] for n in morph.nodes() if n['type'] in compartments] + [0])
 
@@ -30,6 +36,14 @@ def leftextent(morph, compartments=[2, 3, 4]):
 
 def rightextent(morph, compartments=[2, 3, 4]):
     return max([n['x'] - morph.get_soma()['x'] for n in morph.nodes() if n['type'] in compartments] + [0])
+
+
+def inextent(morph, compartments=[2, 3, 4]): #left
+    return abs(min([n['z'] - morph.get_soma()['z'] for n in morph.nodes() if n['type'] in compartments] + [0]))
+
+
+def outextent(morph, compartments=[2, 3, 4]): #right
+    return abs(max([n['z'] - morph.get_soma()['z'] for n in morph.nodes() if n['type'] in compartments] + [0]))
 
 
 def tree_length(morphology, st_node=None):
