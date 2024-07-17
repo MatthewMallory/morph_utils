@@ -1,4 +1,3 @@
-import pyodbc
 import pandas as pd
 
 def query_access(db_file, query):
@@ -7,6 +6,11 @@ def query_access(db_file, query):
 
     :return: query result as pandas dataframe 
     """
+    try:
+       import pyodbc
+    except ImportError as e:
+       raise ImportError("Failed to import pyodbc. Please install it if possible. This package is not available on all OS.") from e
+        
     conn = pyodbc.connect(r'Driver={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=%s;' % db_file)
     result = pd.read_sql(query, conn)
     conn.close()
