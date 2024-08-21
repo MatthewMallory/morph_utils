@@ -267,32 +267,32 @@ def get_mouse_hpf_passing(db_file):
               mouse_wholebrain_supertype
        FROM IVSCCTrackingDatabaseProduction
        WHERE 
-       (
-              Project LIKE 'mIVSCC-MET' 
-       ) AND 
-       (
               [Cell Overall State] NOT LIKE 'Deferred' AND 
               [Cell Overall State] NOT LIKE 'To be%' AND 
               [Cell Overall State] NOT LIKE 'QC' AND 
               [Cell Overall State] NOT LIKE 'Failed%' AND 
-              [Cell Overall State] NOT LIKE 'Rescan%'
-       ) AND 
+              [Cell Overall State] NOT LIKE 'Rescan%' AND
        (
-              [Pinned Structure and Layer] LIKE 'HPF%' OR 
-              [Pinned Structure and Layer] LIKE 'HIP%' OR 
-              [Pinned Structure and Layer] LIKE 'CA%' OR 
-              [Pinned Structure and Layer] LIKE 'DG%' OR 
-              [Pinned Structure and Layer] LIKE 'FC%' OR 
-              [Pinned Structure and Layer] LIKE 'IG%' OR 
-              [Pinned Structure and Layer] LIKE 'RHP%' OR 
-              [Pinned Structure and Layer] LIKE 'ENT%' OR 
-              [Pinned Structure and Layer] LIKE 'PAR%' OR 
-              [Pinned Structure and Layer] LIKE 'POST%' OR 
-              [Pinned Structure and Layer] LIKE 'PRE%' OR 
-              [Pinned Structure and Layer] LIKE 'SUB%' OR 
-              [Pinned Structure and Layer] LIKE 'ProS%' OR 
-              [Pinned Structure and Layer] LIKE 'HATA%' OR 
-              [Pinned Structure and Layer] LIKE 'APr%'
+              (Project LIKE 'mIVSCC-MET%' AND 
+                     (
+                            [Pinned Structure and Layer] LIKE 'HPF%' OR 
+                            [Pinned Structure and Layer] LIKE 'HIP%' OR 
+                            [Pinned Structure and Layer] LIKE 'CA%' OR 
+                            [Pinned Structure and Layer] LIKE 'DG%' OR 
+                            [Pinned Structure and Layer] LIKE 'FC%' OR 
+                            [Pinned Structure and Layer] LIKE 'IG%' OR 
+                            [Pinned Structure and Layer] LIKE 'RHP%' OR 
+                            [Pinned Structure and Layer] LIKE 'ENT%' OR 
+                            [Pinned Structure and Layer] LIKE 'PAR%' OR 
+                            [Pinned Structure and Layer] LIKE 'POST%' OR 
+                            [Pinned Structure and Layer] LIKE 'PRE%' OR 
+                            [Pinned Structure and Layer] LIKE 'SUB%' OR 
+                            [Pinned Structure and Layer] LIKE 'ProS%' OR 
+                            [Pinned Structure and Layer] LIKE 'HATA%' OR 
+                            [Pinned Structure and Layer] LIKE 'APr%'
+                     )
+              ) OR
+              Project = 'mIVSCC-MET-HiMC'
        );
     """
     result = query_access(db_file, query)
