@@ -273,7 +273,7 @@ def get_mouse_hpf_passing(db_file):
               [Cell Overall State] NOT LIKE 'Failed%' AND 
               [Cell Overall State] NOT LIKE 'Rescan%' AND
        (
-              (Project = 'mIVSCC-MET' AND 
+              (Project LIKE 'mIVSCC-MET%' AND 
                      (
                             [Pinned Structure and Layer] LIKE 'HPF%' OR 
                             [Pinned Structure and Layer] LIKE 'HIP%' OR 
@@ -294,7 +294,7 @@ def get_mouse_hpf_passing(db_file):
               ) OR
               Project = 'mIVSCC-MET-HiMC'
        );
-"""
+    """
     result = query_access(db_file, query)
     return result
 
