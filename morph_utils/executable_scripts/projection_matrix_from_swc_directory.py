@@ -9,7 +9,8 @@ class IO_Schema(ags.ArgSchema):
     output_projection_csv = ags.fields.OutputFile(description="output projection csv")
     projection_threshold = ags.fields.Int(default=0)
     normalize_proj_mat = ags.fields.Boolean(default=True)
-    branch_count = ags.fields.Boolean(default=False, description="when true, this will measure a matrix of number of branches instead of number of nodes")
+    mask_method = ags.fields.Str(default="tip_and_branch",description = "'tip_and_branch', 'branch' or 'tip' ")
+    tip_count = ags.fields.Boolean(default=False, description="when true, this will measure a matrix of number of tips instead of number of nodes")
     annotation_path = ags.fields.Str(default="",description = "Optional. Path to annotation .nrrd file. Defaults to 10um ccf atlas")
     resolution = ags.fields.Int(default=10, description="Optional. ccf resolution (micron/pixel")
     volume_shape = ags.fields.List(ags.fields.Int, default=[1320, 800, 1140], description = "Optional. Size of input annotation")
@@ -34,7 +35,8 @@ def main(ccf_swc_directory,
          resolution, 
          projection_threshold, 
          normalize_proj_mat,
-         branch_count,
+         mask_method,
+         tip_count,
          annotation_path,
          volume_shape,
          **kwargs):
@@ -48,7 +50,8 @@ def main(ccf_swc_directory,
         swc_pth = os.path.join(ccf_swc_directory, swc_fn)
 
         res = projection_matrix_for_swc(input_swc_file=swc_pth, 
-                                        branch_count = branch_count, 
+                                        tip_count = tip_count, 
+                                        mask_method = mask_method,
                                         annotation=None, 
                                         annotation_path = annotation_path, 
                                         volume_shape=volume_shape,
