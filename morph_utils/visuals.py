@@ -70,18 +70,19 @@ def basic_morph_plot(morph,
     soma_node = morph.get_soma()
     if (soma_node) and (scatter_soma):
         if not side:
-            ax.scatter(soma_node['x'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, label='morph.get_soma()')
+            ax.scatter(soma_node['x'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, )
         else:
-            ax.scatter(soma_node['z'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, label='morph.get_soma()')
+            ax.scatter(soma_node['z'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, )
 
     #scatter root nodes throughout 
     if scatter_roots:
         root_nodes = [n for n in morph.nodes() if (n['parent'] == -1) and (n['type']==1)]
         for rn in root_nodes:
             if not side:
-                ax.scatter(rn['x'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, label='root (parent=-1,type=1)')
+                ax.scatter(rn['x'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, )
             else:
-                ax.scatter(rn['z'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, label='root (parent=-1,type=1)')
+
+                ax.scatter(rn['z'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, )
 
     soma_root = morph.get_soma()
     if (soma_root) and (plot_soma):

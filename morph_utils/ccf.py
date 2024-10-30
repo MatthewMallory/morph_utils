@@ -356,33 +356,53 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     specimen_projection_summary_branch_and_tip = {}
     for prefix, coords_arr in prefixes.items():
 
-        these_nodes = [morph.node_by_id(nodes_to_annotate_dict[tuple(c)]) for c in coords_arr]
-        
-        if mask_method == 'None':
-            tip_and_branch_mask = [True] * len(these_nodes)
-        else:
-            tip_and_branch_mask = [False] * len(these_nodes)
-                
-            for ct, no in enumerate(these_nodes):
-                num_child = len(morph.get_children(no)) 
-                if mask_method == 'tip_and_branch':
-                    if num_child != 1:
-                        tip_and_branch_mask[ct] = True
-                        
-                elif mask_method == 'tip':
-                    if num_child == 0:
-                        tip_and_branch_mask[ct] = True
-                        
-                elif mask_method == 'branch':
-                    if num_child >1:
-                        tip_and_branch_mask[ct] = True
-                else:
-                    raise ValueError("Invalid mask_method parameter passed: {}".format(mask_method))
-                        
-                    
-
+        # these_nodes = [morph.node_by_id(nodes_to_annotate_dict[tuple(c)]) for c in coords_arr]
         # For each coordinate, get the ccf structure (full name with layer), abbreviate it
         structures = [full_name_to_abbrev_dict[get_ccf_structure(c, name_map, annotation, True)] for c in coords_arr]
+        
+        if mask_method == 'None':
+            tip_and_branch_mask = [True] * len(coords_arr)
+        
+        else:
+            
+            tip_and_branch_mask = [False] * len(coords_arr)
+            if mask_method != "tip_and_branch":
+                    
+                        
+                for ct, no in enumerate(coords_arr):
+                    num_child = len(morph.get_children(no)) 
+                    if mask_method == 'tip_or_branch':
+                        if num_child != 1:
+                            tip_and_branch_mask[ct] = True
+                            
+                    elif mask_method == 'tip':
+                        if num_child == 0:
+                            tip_and_branch_mask[ct] = True
+                            
+                    elif mask_method == 'branch':
+                        if num_child >1:
+                            tip_and_branch_mask[ct] = True
+            
+            elif mask_method == 'tip_and_branch':
+                structure_with_branches = []
+                structures_with_tips = []
+                ct=-1
+                for st, no in zip(structures,coords_arr):
+                    ct+=1
+                    num_child = len(morph.get_children(no)) 
+                    if num_child == 0:
+                        structures_with_tips.append(st)
+                    elif num_child >1:
+                        structure_with_branches.append(st)
+                
+                structures_of_interest = set(structure_with_branches) & set(structures_with_tips)                        
+                tip_and_branch_mask = [True if st in structures_of_interest else False for st in structures]
+                    
+            else:
+                raise ValueError("Invalid mask_method parameter passed: {}".format(mask_method))
+                            
+                    
+
         # add prefix and de-layer projection targets
         structures = [prefix + "_" + s for s in structures]
         projection_target_counts = pd.Series(structures).value_counts().to_dict()
