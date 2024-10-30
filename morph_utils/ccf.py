@@ -287,7 +287,7 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         'tip_and_branch' will return a projection matrix masking only structures with tip and branch nodes. If 'tip'
         will only look at structures with tip nodes. And last, if 'branch' will only look at structures with 
         branch nodes.
-        tip_count (bool): if True, will count number of tips instead of the number of axon nodes
+        tip_count (bool): if True, will count number of tips instead of the length of axon
         annotation (array, optional): 3 dimensional ccf annotation array. Defaults to None.
         annotation_path (str, optional): path to nrrd file to use (optional). Defaults to None.
         volume_shape (tuple, optional): the size in voxels of the ccf atlas (annotation volume). Defaults to (1320, 800, 1140).
@@ -298,14 +298,10 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         filename (str)
         
         specimen_projection_summary (dict): keys are strings of structures and values are the quantitiave projection
-        values. Either axon length, or number numbe of nodes depending on branch_count.
-        
-        specimen_projection_summary_branch_and_tip (dict): keys are structures and values are the quantitiave projection
-        values. Either axon length, or number numbe of nodes. This dict only returns
-        structures where there is a branch or a tip node in that structure.
+        values. Either axon length, or number numbe of nodes depending on tip_count argument.
 
     """
-
+    
     if annotation is None:
         if isinstance(annotation_path, str):
             if not os.path.exists(annotation_path):
@@ -333,119 +329,72 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     morph = move_soma_to_left_hemisphere(morph, resolution, volume_shape, z_midline)    
     spacing = get_node_spacing(morph)[0]
 
-    nodes_to_annotate = [n for n in morph.nodes() if (n['type'] in node_type_list)]
-    # print("Nodes to annotate before branch filter:")
-    # print(len(nodes_to_annotate))
-    if tip_count:
-        nodes_to_annotate = [n for n in nodes_to_annotate if len(morph.get_children(n)) == 0]
-        spacing = 1
+    morph_df = pd.DataFrame(morph.nodes())
 
-    # print("Nodes to annotate:")
-    # print(len(nodes_to_annotate))
-    coords_to_annotate = np.array([[n['x'], n['y'], n['z']] for n in nodes_to_annotate])
-
-    nodes_to_annotate_dict = {tuple([n['x'], n['y'], n['z']]): n['id'] for n in nodes_to_annotate}
-
-    ipsi_coords = coords_to_annotate[coords_to_annotate[:, 2] < z_midline]
-    contra_coords = coords_to_annotate[coords_to_annotate[:, 2] > z_midline]
+    # filter by axon/dend types
+    morph_df = morph_df[morph_df['type'].isin(node_type_list)]
     
-    prefixes = {"ipsi": ipsi_coords,
-                "contra": contra_coords}
+    # annotate each node
+    morph_df['ccf_structure'] = morph_df.apply(lambda rw: full_name_to_abbrev_dict[get_ccf_structure( np.array([rw.x, rw.y, rw.z]) , name_map, annotation, True)], axis=1)
 
-    specimen_projection_summary = {}
-    specimen_projection_summary_branch_and_tip = {}
-    for prefix, coords_arr in prefixes.items():
-
-        # these_nodes = [morph.node_by_id(nodes_to_annotate_dict[tuple(c)]) for c in coords_arr]
-        # For each coordinate, get the ccf structure (full name with layer), abbreviate it
-        structures = [full_name_to_abbrev_dict[get_ccf_structure(c, name_map, annotation, True)] for c in coords_arr]
-        
-        if mask_method == 'None':
-            tip_and_branch_mask = [True] * len(coords_arr)
-        
+    # roll up fiber tracts
+    morph_df.loc[morph_df['ccf_structure'].isin(fiber_tract_acronyms),'ccf_structure']='fiber tracts'
+    
+    # identify branch/tip/reducible
+    def node_ider(morph,i):
+        nc = len(morph.child_ids([i])[0]) 
+        if nc==0:
+            return 'tip'
+        elif nc>1:
+            return 'branch'
         else:
+            return 'reducible'
+    morph_df["node_type"] = morph_df.id.apply(lambda i: node_ider(morph,i))
+
+    # determine ipsi/contra projections
+    morph_df["ccf_structure_sided"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure) if row.z<z_midline else "conta_{}".format(row.ccf_structure), axis=1)
+
+
+    # mask the morphology dataframe accordinagly
+    if mask_method!="None":
             
-            tip_and_branch_mask = [False] * len(coords_arr)
-            if mask_method != "tip_and_branch":
-                    
-                        
-                for ct, no in enumerate(coords_arr):
-                    num_child = len(morph.get_children(no)) 
-                    if mask_method == 'tip_or_branch':
-                        if num_child != 1:
-                            tip_and_branch_mask[ct] = True
-                            
-                    elif mask_method == 'tip':
-                        if num_child == 0:
-                            tip_and_branch_mask[ct] = True
-                            
-                    elif mask_method == 'branch':
-                        if num_child >1:
-                            tip_and_branch_mask[ct] = True
-            
-            elif mask_method == 'tip_and_branch':
-                structure_with_branches = []
-                structures_with_tips = []
-                ct=-1
-                for st, no in zip(structures,coords_arr):
-                    ct+=1
-                    num_child = len(morph.get_children(no)) 
-                    if num_child == 0:
-                        structures_with_tips.append(st)
-                    elif num_child >1:
-                        structure_with_branches.append(st)
+        keep_structs = []
+        for struct, struct_df in morph_df.groupby("ccf_structure_sided"):
+            node_types_in_struct = struct_df.node_type.unique().tolist()
+        
+            if (mask_method == 'tip') & ("tip" in node_types_in_struct):
+                keep_structs.append(struct)
                 
-                structures_of_interest = set(structure_with_branches) & set(structures_with_tips)                        
-                tip_and_branch_mask = [True if st in structures_of_interest else False for st in structures]
-                    
-            else:
-                raise ValueError("Invalid mask_method parameter passed: {}".format(mask_method))
+            elif (mask_method == 'branch') & ("branch" in node_types_in_struct):
+                keep_structs.append(struct)
+                
+            elif (mask_method == 'tip_and_branch') & (all([i in node_types_in_struct for i in ['tip','branch']])):
+                keep_structs.append(struct)
+                
+            elif (mask_method == 'tip_or_branch') & (any([i in node_types_in_struct for i in ['tip','branch']])):
+                keep_structs.append(struct)
                             
-                    
+        morph_df_masked = morph_df[morph_df['ccf_structure_sided'].isin(keep_structs)]
+        
+    else:
+        morph_df_masked = morph_df
 
-        # add prefix and de-layer projection targets
-        structures = [prefix + "_" + s for s in structures]
-        projection_target_counts = pd.Series(structures).value_counts().to_dict()
+    # remove ventral targets and out of brain 
+    ventral_targs = ["ipsi_{}".format(v) for v in vs_acronyms] + ["contra_{}".format(v) for v in vs_acronyms]
+    targets_to_remove = ["ipsi_Out Of Cortex", "ipsi_root","contra_Out Of Cortex", "contra_root"] + ventral_targs
+    morph_df_masked = morph_df_masked[~morph_df_masked['ccf_structure_sided'].isin(targets_to_remove)]
 
-        branch_and_tip_structures = list(set(np.array(structures)[tip_and_branch_mask]))
-        # so that the nomenclature agrees with all projections
-        branch_and_tip_structures = [s for s in branch_and_tip_structures]
-
-        # Sort out fiber tracts
-        curr_keys = list(projection_target_counts.keys())
-        for projection_target in curr_keys:
-
-            projection_value = projection_target_counts[projection_target]
-            acronym = projection_target.replace(f"{prefix}_", "")
-            if acronym in fiber_tract_acronyms:
-                fiber_tract_key = f"{prefix}_fiber tracts"
-
-                branch_and_tip_structures = list(
-                    map(lambda x: x.replace(projection_target, fiber_tract_key), branch_and_tip_structures))
-
-                if fiber_tract_key not in list(projection_target_counts.keys()):
-                    projection_target_counts[fiber_tract_key] = 0
-                projection_target_counts[fiber_tract_key] += projection_value
-
-                del projection_target_counts[projection_target]
-
-        ventral_targs = ["{}_{}".format(prefix, v) for v in vs_acronyms]
-        targets_to_remove = [f"{prefix}_Out Of Cortex", f"{prefix}_root"] + ventral_targs
-        for targ in targets_to_remove:
-            if targ in projection_target_counts.keys():
-                del projection_target_counts[targ]
-
-            if targ in branch_and_tip_structures:
-                branch_and_tip_structures.remove(targ)
-
-        # Add them to bilateraldict
-        for k, v in projection_target_counts.items():
-            specimen_projection_summary[k] = v * spacing
-
-            if k in branch_and_tip_structures:
-                specimen_projection_summary_branch_and_tip[k] = v * spacing
-
-    return input_swc_file, specimen_projection_summary, specimen_projection_summary_branch_and_tip   
+    # accomodate tip counting instead of axon length 
+    if tip_count:
+        morph_df_masked = morph_df_masked[morph_df_masked['node_type']=='tip']
+        spacing = 1
+    
+    # qunatify projections per structure 
+    n_nodes_per_structure = morph_df_masked.ccf_structure_sided.value_counts()
+    axon_length_per_structure = n_nodes_per_structure*spacing
+    specimen_projection_summary = axon_length_per_structure.to_dict()
+    
+    return input_swc_file, specimen_projection_summary   
 
  
 def correct_superficial_nodes_out_of_brain(morphology,
