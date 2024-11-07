@@ -12,20 +12,21 @@ from scipy import interpolate
 from copy import copy
 
 
-def prune_tree(morphology,num_node_thresh ):
+def prune_tree(morphology,num_node_thresh, node_types=[1,2,3,4] ):
     """will prune any segments in the tree that are shorter than a given length threhsold, 
     where length is measured in number of nodes
 
     Args:
         morphology (NeuronMorphology.morphology): input morphology
         num_node_thresh (int): pruning threshold
+        node_types (list): node types to consider when pruning 
 
     Returns:
         NeuronMorphology.morphology: pruned morphology
     """
     nodes_to_remove = set()
     prune_count = 0
-    bifur_nodes = [n for n in morphology.nodes() if len(morphology.get_children(n)) > 1]
+    bifur_nodes = [n for n in morphology.nodes() if (len(morphology.get_children(n)) > 1) and (n['type'] in node_types) ]
     for bif_node in bifur_nodes:
         children = morphology.get_children(bif_node)
         for child in children:
@@ -35,9 +36,10 @@ def prune_tree(morphology,num_node_thresh ):
                 [nodes_to_remove.add(n['id']) for n in child_remove_nodes]
 
     soma = morphology.get_soma()
-    soma_children = morphology.get_children(soma)
+    soma_children = [ch for ch in morphology.get_children(soma) if ch['type'] in node_types]
     soma_children_ids = [n['id'] for n in soma_children]
     root_nodes = soma_children + [n for n in morphology.nodes() if n['parent']==-1 and (n['id'] not in soma_children_ids) and (n['id']!=soma['id']) ]
+    root_nodes = [r for r in root_nodes if r['type'] in node_types]
     for root in root_nodes:
         down_tree,down_tree_n = bfs_tree(root,morphology)
         if down_tree_n < num_node_thresh:
