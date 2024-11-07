@@ -11,6 +11,47 @@ from morph_utils.measurements import dist_bwn_nodes
 from scipy import interpolate
 from copy import copy
 
+
+def prune_tree(morphology,num_node_thresh ):
+    """will prune any segments in the tree that are shorter than a given length threhsold, 
+    where length is measured in number of nodes
+
+    Args:
+        morphology (NeuronMorphology.morphology): input morphology
+        num_node_thresh (int): pruning threshold
+
+    Returns:
+        NeuronMorphology.morphology: pruned morphology
+    """
+    nodes_to_remove = set()
+    prune_count = 0
+    bifur_nodes = [n for n in morphology.nodes() if len(morphology.get_children(n)) > 1]
+    for bif_node in bifur_nodes:
+        children = morphology.get_children(bif_node)
+        for child in children:
+            child_remove_nodes, child_seg_length = bfs_tree(child, morphology)
+            if child_seg_length < num_node_thresh:
+                prune_count += 1
+                [nodes_to_remove.add(n['id']) for n in child_remove_nodes]
+
+    soma = morphology.get_soma()
+    soma_children = morphology.get_children(soma)
+    soma_children_ids = [n['id'] for n in soma_children]
+    root_nodes = soma_children + [n for n in morphology.nodes() if n['parent']==-1 and (n['id'] not in soma_children_ids) and (n['id']!=soma['id']) ]
+    for root in root_nodes:
+        down_tree,down_tree_n = bfs_tree(root,morphology)
+        if down_tree_n < num_node_thresh:
+            prune_count += 1
+            [nodes_to_remove.add(n['id']) for n in down_tree]
+            
+    keeping_nodes = [n for n in morphology.nodes() if n['id'] not in nodes_to_remove]
+    pruned_morph = Morphology(
+        keeping_nodes,
+        node_id_cb=lambda node: node['id'],
+        parent_id_cb=lambda node: node['parent'])
+
+    return pruned_morph
+
 def resample_3d_points(points, spacing):
     """
     Resample points at a given spacing. Will include the first and last points provided in points. 
