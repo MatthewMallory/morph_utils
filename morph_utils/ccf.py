@@ -352,7 +352,7 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     morph_df["node_type"] = morph_df.id.apply(lambda i: node_ider(morph,i))
 
     # determine ipsi/contra projections
-    morph_df["ccf_structure_sided"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure) if row.z<z_midline else "conta_{}".format(row.ccf_structure), axis=1)
+    morph_df["ccf_structure_sided"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure) if row.z<z_midline else "contra_{}".format(row.ccf_structure), axis=1)
 
 
     # mask the morphology dataframe accordinagly
