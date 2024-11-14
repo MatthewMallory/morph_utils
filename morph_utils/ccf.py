@@ -25,6 +25,20 @@ with open(ACR_MAP_FILE, "r") as fn:
 ACRONYM_MAP = {k:int(v) for k,v in ACRONYM_MAP.items()}
 
 
+_cached_ccf_annotation = None
+
+def get_cached_ccf_annotation(annotation_file):
+    """Retrieve the cached CCF annotation or load it if not already cached"""
+    global _cached_ccf_annotation
+    default_annotation_path = files('morph_utils') / 'data/annotation_10.nrrd'
+    if (_cached_ccf_annotation is not None) and (annotation_file==default_annotation_path):
+        return _cached_ccf_annotation
+    else:
+        _cached_ccf_annotation, _ = nrrd.read(annotation_file)
+        
+    return _cached_ccf_annotation
+
+
 def open_ccf_annotation(with_nrrd, annotation_path=None):
     """
     Open up CCF annotation volume. Use nrrd to open file to get 3-d array, or set with_nrrd to false 
@@ -37,12 +51,12 @@ def open_ccf_annotation(with_nrrd, annotation_path=None):
     Returns:
         array: 3d atlas array
     """
-    if annotation_path is None: 
+    if annotation_path is None:
         annotation_path =  files('morph_utils') / 'data/annotation_10.nrrd'
 
     annotation_file = os.path.join(annotation_path)
     if with_nrrd:
-        annotation, _ = nrrd.read(annotation_file,)
+        annotation = get_cached_ccf_annotation(annotation_path)
     else:
         # I'm not sure if anyones workflows use this so leaving it as an option, but 
         # making with_nrrd a required kwarg
