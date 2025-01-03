@@ -6,6 +6,7 @@ def basic_morph_plot(morph,
                          morph_colors={1: 'black', 2: "firebrick", 4: "orange", 3: "steelblue"},
                          side=False,
                          xoffset=0,
+                         yoffset=0,
                          line_w=0.5,
                          scatter=False,
                          scatter_roots=True,
@@ -23,6 +24,7 @@ def basic_morph_plot(morph,
     :param morph_colors: dictionary to represent colors for each compartment
     :param side: if True will plot zy
     :param xoffset: How far to push the nodes in x. Useful when plotting multiple cells together
+    :param yoffset: How far to push the nodes in y.
     :param line_w: linewidth for morphology lines
     :param scatter: if you want to scatter nodes in addition to drawing their lines
     :param scatter_roots: scatter nodes whose parent = -1
@@ -61,7 +63,7 @@ def basic_morph_plot(morph,
                 lines_x += [p["z"] + xoffset, c["z"] + xoffset, None]
             else:
                 lines_x += [p["x"] + xoffset, c["x"] + xoffset, None]
-            lines_y += [p["y"], c["y"], None]
+            lines_y += [p["y"] + yoffset, c["y"] + yoffset, None]
         lines_y = [None if v is None else 1 * v for v in lines_y]
         ax.plot(lines_x, lines_y, c=color, linewidth=line_w, zorder=compartment)
 
@@ -70,26 +72,26 @@ def basic_morph_plot(morph,
     soma_node = morph.get_soma()
     if (soma_node) and (scatter_soma):
         if not side:
-            ax.scatter(soma_node['x'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, )
+            ax.scatter(soma_node['x'] + xoffset, soma_node['y'] + yoffset, c='k', marker='X', s=soma_dot_size, )
         else:
-            ax.scatter(soma_node['z'] + xoffset, soma_node['y'], c='k', marker='X', s=soma_dot_size, )
+            ax.scatter(soma_node['z'] + xoffset, soma_node['y'] + yoffset, c='k', marker='X', s=soma_dot_size, )
 
     #scatter root nodes throughout 
     if scatter_roots:
         root_nodes = [n for n in morph.nodes() if (n['parent'] == -1) and (n['type']==1)]
         for rn in root_nodes:
             if not side:
-                ax.scatter(rn['x'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, )
+                ax.scatter(rn['x'] + xoffset, rn['y'] + yoffset, c='k', marker='X', s=dotsize * 2, )
             else:
 
-                ax.scatter(rn['z'] + xoffset, rn['y'], c='k', marker='X', s=dotsize * 2, )
+                ax.scatter(rn['z'] + xoffset, rn['y'] + yoffset, c='k', marker='X', s=dotsize * 2, )
 
     soma_root = morph.get_soma()
     if (soma_root) and (plot_soma):
         for ch in morph.get_children(soma_root):
             if not side:
                 ax.plot([ch['x'] + xoffset, soma_root['x']+ xoffset],
-                        [ch['y'], soma_root['y']], c='k', linewidth=line_w * 2.5)
+                        [ch['y'] + yoffset, soma_root['y']+ yoffset], c='k', linewidth=line_w * 2.5)
             else:
                 ax.plot([ch['z'] + xoffset, soma_root['z']+ xoffset],
-                        [ch['y'], soma_root['y']], c='k', linewidth=line_w * 2.5)
+                        [ch['y'] + yoffset, soma_root['y']+ yoffset], c='k', linewidth=line_w * 2.5)
