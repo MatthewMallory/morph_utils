@@ -399,38 +399,36 @@ def get_mouse_thalamus_passing(db_file):
               mouse_wholebrain_supertype
        FROM IVSCCTrackingDatabaseProduction
        WHERE 
-       (
-              Project LIKE 'mIVSCC-MET' OR 
-              Project LIKE 'mIVSCC-MET-U19_AIBS' OR 
-              Project LIKE 'T301%'
-       ) AND 
-       (
               [Cell Overall State] NOT LIKE 'Deferred' AND 
               [Cell Overall State] NOT LIKE 'To be%' AND 
               [Cell Overall State] NOT LIKE 'QC' AND 
               [Cell Overall State] NOT LIKE 'Failed%' AND 
-              [Cell Overall State] NOT LIKE 'Rescan%'
-       ) AND 
+              [Cell Overall State] NOT LIKE 'Rescan%' AND
        (
-              [Pinned Structure and Layer] IN (
-              'TH', 'DORsm', 'VENT', 'VAL', 'VM', 'VP', '', 'PoT', 
-              'SPF', 'SPFm', 'SPFp', 'SPA', 'PP', 'GENd', 'LAT', 
-              'LP', 'PO', 'POL', 'SGN', 'Eth', 'REth', 'ATN', 'AV', 
-              'AD', 'IAM', 'IAD', 'LD', 'MED', 'IMD', 'SMT', 'PR', 
-              'MTN', 'PVT', 'PT', 'RE', 'Xi', 'ILM', 'RH', 'CM', 
-              'PCN', 'CL', 'PF', 'PIL', 'RT', 'GENv', 'IGL', 'IntG', 
-              'SubG', 'EPI', 'MH', 'LH', 'PIN'
-              )
-              OR 
-              [Pinned Structure and Layer] LIKE 'VPL%' OR 
-              [Pinned Structure and Layer] LIKE 'VPM%' OR 
-              [Pinned Structure and Layer] LIKE 'MG%' OR 
-              [Pinned Structure and Layer] LIKE 'LGd%' OR 
-              [Pinned Structure and Layer] LIKE 'AM%' OR 
-              [Pinned Structure and Layer] LIKE 'MD%' OR 
-              [Pinned Structure and Layer] LIKE 'LGv%'
+              ((Project LIKE 'mIVSCC-MET' OR  Project LIKE 'T301%') AND
+                     (
+                            [Pinned Structure and Layer] IN (
+                            'TH', 'DORsm', 'VENT', 'VAL', 'VM', 'VP', '', 'PoT', 
+                            'SPF', 'SPFm', 'SPFp', 'SPA', 'PP', 'GENd', 'LAT', 
+                            'LP', 'PO', 'POL', 'SGN', 'Eth', 'REth', 'ATN', 'AV', 
+                            'AD', 'IAM', 'IAD', 'LD', 'MED', 'IMD', 'SMT', 'PR', 
+                            'MTN', 'PVT', 'PT', 'RE', 'Xi', 'ILM', 'RH', 'CM', 
+                            'PCN', 'CL', 'PF', 'PIL', 'RT', 'GENv', 'IGL', 'IntG', 
+                            'SubG', 'EPI', 'MH', 'LH', 'PIN') OR
+                            [Pinned Structure and Layer] LIKE 'VPL%' OR 
+                            [Pinned Structure and Layer] LIKE 'VPM%' OR 
+                            [Pinned Structure and Layer] LIKE 'MG%' OR 
+                            [Pinned Structure and Layer] LIKE 'LGd%' OR 
+                            [Pinned Structure and Layer] LIKE 'AM%' OR 
+                            [Pinned Structure and Layer] LIKE 'MD%' OR 
+                            [Pinned Structure and Layer] LIKE 'LGv%'
+                     )
+              ) OR
+              Project = 'mIVSCC-MET-U19_AIBS'
        );
     """    
+
+
     result = query_access(db_file, query)
     return result
 
