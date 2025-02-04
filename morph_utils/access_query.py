@@ -184,6 +184,7 @@ def get_mouse_passing(db_file):
     WHERE 
        (
               Project LIKE 'mIVSCC-MET' OR 
+              Project LIKE 'mIVSCC-MET-%' OR 
               Project LIKE 'T301%'
        ) AND 
        (
@@ -400,6 +401,7 @@ def get_mouse_thalamus_passing(db_file):
        WHERE 
        (
               Project LIKE 'mIVSCC-MET' OR 
+              Project LIKE 'mIVSCC-MET-U19_AIBS' OR 
               Project LIKE 'T301%'
        ) AND 
        (
