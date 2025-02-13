@@ -27,6 +27,12 @@ def ivscc_validate_morph(input_swc, distance_threshold=50, expected_types=[1, 2,
     :param expected_types: expected node types
     :return: error_list: list of all errors encountered; list
     """
+    
+    meta_records = {"errors":[]}
+    node_list = []
+    axon_origin_node_list = []
+    root_node_list = [] 
+    
     morph = morphology_from_swc(input_swc)
 
     nodes_to_qc = morph.nodes()
@@ -37,10 +43,13 @@ def ivscc_validate_morph(input_swc, distance_threshold=50, expected_types=[1, 2,
     number_of_roots = 0
     number_nodes_per_type = defaultdict(int)
     number_of_nodes_at_each_coord = defaultdict(int)
-
+    node_coord_to_id = {}
     soma = morph.get_soma()
     if soma is None:
         error_list.append("No Soma Found")
+        node_list.append({})
+        error_dict = {'error':"No Soma Found", "Nodes":[]}
+        meta_records['errors'].append(error_dict)
     else:
         soma_coord = (soma['x'], soma['y'], soma['z'])
 
@@ -51,13 +60,19 @@ def ivscc_validate_morph(input_swc, distance_threshold=50, expected_types=[1, 2,
 
         number_nodes_per_type[cur_node_type] += 1
         number_of_nodes_at_each_coord[cur_node_coord] += 1
-
+        node_coord_to_id[cur_node_coord] = no['id']
+        
         if parent_id != -1:
             if parent_id in all_node_ids:
 
                 if cur_node_type not in expected_types:
                     error_list.append("Unexpected Node Type Found: {}".format(cur_node_type))
+                    node_list.append(no)
+                    error_dict = {'error':"Unexpected Node Type Found: {}".format(cur_node_type), 
+                                  "Nodes":[no]}
+                    meta_records['errors'].append(error_dict)
 
+                    
                 # check that its compartment
                 parent_node = morph.node_by_id(parent_id)
                 parent_type = parent_node['type']
@@ -68,62 +83,140 @@ def ivscc_validate_morph(input_swc, distance_threshold=50, expected_types=[1, 2,
                         # Otherwise, this is unacceptable UNLESS it's axon stem from basasl
                         if (cur_node_type == 2) & (parent_type == 3):
                             axon_origins += 1
+                            axon_origin_node_list.append(no)
                         else:
                             error_list.append(
                                 "Node type {} has parent node of type {}".format(cur_node_type, parent_type))
+                            node_list.append(no)
+                            error_dict = {
+                                'error':"Node type {} has parent node of type {}".format(cur_node_type, parent_type), 
+                                  "Nodes":[no]
+                                  }
+                            meta_records['errors'].append(error_dict)
+
 
                     else:
                         # This node is a child of the soma
                         if cur_node_type == 2:
                             axon_origins += 1
+                            axon_origin_node_list.append(no)
 
                         # Make sure it's not a furcation node
                         cur_node_children = morph.get_children(no)
                         if len(cur_node_children) > 1:
                             error_list.append("Node {} is an immediate child of the soma and branches".format(no['id']))
+                            node_list.append(no)
+                            error_dict = {
+                                'error':"Node {} is an immediate child of the soma and branches".format(no['id']), 
+                                  "Nodes":[no]
+                                  }
+                            meta_records['errors'].append(error_dict)
 
+                            
                         # And make sure it's not too far away from the soma
                         if soma:
 
                             dist = euclidean(cur_node_coord, soma_coord)
                             if dist > distance_threshold:
                                 error_list.append("Soma child node {} is {} distance from soma".format(no['id'], dist))
+                                node_list.append(no)
+                                error_dict = {
+                                'error':"Soma child node {} is {} distance from soma".format(no['id'], dist), 
+                                  "Nodes":[no]
+                                  }
+                                meta_records['errors'].append(error_dict)
+
 
             else:
                 error_list.append(
                     "Node {}, Type {}, Parent ID {} Not In Morphology".format(no['id'], no['type'], parent_id))
-
+                node_list.append(no)
+                
+                error_dict = {
+                    'error':"Node {}, Type {}, Parent ID {} Not In Morphology".format(no['id'], no['type'], parent_id), 
+                        "Nodes":[no]
+                        }
+                meta_records['errors'].append(error_dict)
+                
         else:
             number_of_roots += 1
+            root_node_list.append(no)
 
     if axon_origins > 1:
         error_list.append("Multiple Axon Origins ({} found)".format(axon_origins))
+        [node_list.append(i) for i in axon_origin_node_list]
+        error_dict = {
+            'error':"Multiple Axon Origins ({} found)".format(axon_origins), 
+            "Nodes":axon_origin_node_list
+                }
+        meta_records['errors'].append(error_dict)
 
+        
     if number_of_roots > 1:
         error_list.append("Multiple Root Nodes ({} found)".format(number_of_roots))
+        [node_list.append(i) for i in root_node_list]
+        
+        error_dict = {
+            'error':"Multiple Root Nodes ({} found)".format(number_of_roots), 
+            "Nodes":root_node_list
+                }
+        meta_records['errors'].append(error_dict)
+
 
     duplicate_coords = [k for k, v in number_of_nodes_at_each_coord.items() if v != 1]
+    duplicate_nodes = [morph.node_by_id(node_coord_to_id[c]) for c in duplicate_coords]
     num_duplicate_coords = len(duplicate_coords)
     if num_duplicate_coords != 0:
         error_list.append("Nodes With Identical X,Y,Z Coordinates Found ({} found)".format(num_duplicate_coords))
-
+        error_dict = {
+            'error':"Nodes With Identical X,Y,Z Coordinates Found ({} found)".format(num_duplicate_coords), 
+            "Nodes":duplicate_nodes
+                }
+        meta_records['errors'].append(error_dict)
+        
+        
+        for dup_coord in duplicate_coords:
+            dup_no_id = node_coord_to_id[dup_coord]
+            this_no = morph.node_by_id(dup_no_id)
+            node_list.append(this_no)
+            
     # Loop Check
     has_loops, confidence = check_for_loops(morph)
     if has_loops:
         error_list.append("Loop Found In Morphology")
+        error_dict = {
+            'error':"Loop Found In Morphology", 
+            "Nodes":[]
+                }
+        meta_records['errors'].append(error_dict)
+
     else:
         if confidence == "Ambiguous":
             error_list.append("Unable to check for loops due to missing root")
+            error_dict = {
+            'error':"Unable to check for loops due to missing root", 
+            "Nodes":[]
+                }
+            meta_records['errors'].append(error_dict)
 
     # Soma ID Check:
     if (soma is not None) and (soma['id'] != 1):
         error_list.append("Soma Node ID Is Not 1")
+        node_list.append(soma)
+        error_dict = {
+            'error':"Soma ID Is Not 1", 
+            "Nodes":[soma]
+                }
+        meta_records['errors'].append(error_dict)
 
+    
+    meta_records['file_name'] = os.path.abspath(input_swc)
+    
     error_list = list(set(error_list))
 
     res_dict = {"file_name": os.path.abspath(input_swc),
                 "error_list": error_list}
-    return res_dict
+    return meta_records
 
 
 def check_for_loops(morphology):
@@ -245,6 +338,7 @@ def morphology_parent_node_qc(morph, types_to_check=[2, 3, 4]):
     nodes_to_qc = [n for n in morph.nodes() if n['type'] in types_to_check]
     all_node_ids = [n['id'] for n in morph.nodes()]
     error_list = []
+    axon_origin_nodes = []
     axon_origins = 0
     for no in nodes_to_qc:
         parent_id = no['parent']
@@ -260,6 +354,8 @@ def morphology_parent_node_qc(morph, types_to_check=[2, 3, 4]):
                     # Otherwise, this is unacceptable UNLESS it's axon stem from basasl
                     if (cur_node_type == 2) & (parent_type == 3):
                         axon_origins += 1
+                        axon_origin_nodes.append(no)
+                        
                     else:
                         error_list.append("Node type {} has parent node of type {}".format(cur_node_type, parent_type))
 

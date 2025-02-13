@@ -13,6 +13,8 @@ from copy import copy
 import matplotlib.pyplot as plt
 from morph_utils.query import get_id_by_name, get_structures, query_pinning_info_cell_locator
 from morph_utils.measurements import get_node_spacing
+from morph_utils.modifications import resample_morphology
+
 
 NAME_MAP_FILE = files('morph_utils') / 'data/ccf_structure_name_map.json'
 with open(NAME_MAP_FILE, "r") as fn: 
@@ -289,7 +291,8 @@ def get_ccf_structure(voxel, name_map=None, annotation=None, coordinate_to_voxel
 def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch", 
                               tip_count = False, annotation=None, 
                               annotation_path = None, volume_shape=(1320, 800, 1140),
-                              resolution=10, node_type_list=[2]):
+                              resolution=10, node_type_list=[2],
+                              resample_spacing=None):
     """
     Given a swc file, quantify the projection matrix. That is the amount of axon in each structure. This function assumes
     there is equivalent internode spacing (i.e. the input swc file should be resampled prior to running this code). 
@@ -307,6 +310,8 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         volume_shape (tuple, optional): the size in voxels of the ccf atlas (annotation volume). Defaults to (1320, 800, 1140).
         resolution (int, optional): resolution (um/pixel) of the annotation volume
         node_type_list (list of ints): node type to extract projection data for, typically axon (2)
+        resample_spacing (float or None): if not None, will resample the input morphology to the designated 
+        internode spacing
         
     Returns:
         filename (str)
@@ -340,7 +345,10 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     z_midline = z_size / 2
 
     morph = morphology_from_swc(input_swc_file)
-    morph = move_soma_to_left_hemisphere(morph, resolution, volume_shape, z_midline)    
+    morph = move_soma_to_left_hemisphere(morph, resolution, volume_shape, z_midline) 
+    if resample_spacing is not None:
+        morph = resample_morphology(morph, resample_spacing)
+               
     spacing = get_node_spacing(morph)[0]
 
     morph_df = pd.DataFrame(morph.nodes())
@@ -349,6 +357,10 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     morph_df = morph_df[morph_df['type'].isin(node_type_list)]
     
     # annotate each node
+    if morph_df.empty:
+        print("Its empty")
+        return input_swc_file, {} 
+    
     morph_df['ccf_structure'] = morph_df.apply(lambda rw: full_name_to_abbrev_dict[get_ccf_structure( np.array([rw.x, rw.y, rw.z]) , name_map, annotation, True)], axis=1)
 
     # roll up fiber tracts
