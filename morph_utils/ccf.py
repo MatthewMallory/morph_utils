@@ -289,7 +289,7 @@ def get_ccf_structure(voxel, name_map=None, annotation=None, coordinate_to_voxel
     return name_map[structure_id]
 
 def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch", 
-                              tip_count = False, annotation=None, 
+                              count_method = "node", annotation=None, 
                               annotation_path = None, volume_shape=(1320, 800, 1140),
                               resolution=10, node_type_list=[2],
                               resample_spacing=None):
@@ -304,7 +304,8 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         'tip_and_branch' will return a projection matrix masking only structures with tip and branch nodes. If 'tip'
         will only look at structures with tip nodes. And last, if 'branch' will only look at structures with 
         branch nodes.
-        tip_count (bool): if True, will count number of tips instead of the length of axon
+        count_method (str): ['node','tip','branch']. When 'node', will measure axon length by multiplying by internode spacing.
+        Otherwise will return the count of tip or branch nodes in each structure
         annotation (array, optional): 3 dimensional ccf annotation array. Defaults to None.
         annotation_path (str, optional): path to nrrd file to use (optional). Defaults to None.
         volume_shape (tuple, optional): the size in voxels of the ccf atlas (annotation volume). Defaults to (1320, 800, 1140).
@@ -317,7 +318,7 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         filename (str)
         
         specimen_projection_summary (dict): keys are strings of structures and values are the quantitiave projection
-        values. Either axon length, or number numbe of nodes depending on tip_count argument.
+        values. Either axon length, or number numbe of nodes depending on count_method argument.
 
     """
     
@@ -329,8 +330,11 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
                 print(f"WARNING: Annotation path provided does not exist, defaulting to 10um resolution, (1320,800, 1140) ccf.\n{annotation_path}")
                 annotation_path = None
         annotation = open_ccf_annotation(with_nrrd=True, annotation_path=annotation_path)
-        
-
+    
+    if count_method not in ['node','tip','branch']:
+        msg = f"count_method must be  'node','tip', or 'branch'. You passed in: {count_method}"        
+        raise ValueError(msg)
+    
     sg_df = load_structure_graph()
     name_map = NAME_MAP
     full_name_to_abbrev_dict = dict(zip(sg_df.name, sg_df.index))
@@ -379,15 +383,13 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
 
     # determine ipsi/contra projections
     morph_df["ccf_structure_sided"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure) if row.z<z_midline else "contra_{}".format(row.ccf_structure), axis=1)
-
-
+    print(morph_df.head())
     # mask the morphology dataframe accordinagly
     if mask_method!="None":
             
         keep_structs = []
         for struct, struct_df in morph_df.groupby("ccf_structure_sided"):
             node_types_in_struct = struct_df.node_type.unique().tolist()
-        
             if (mask_method == 'tip') & ("tip" in node_types_in_struct):
                 keep_structs.append(struct)
                 
@@ -404,22 +406,25 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         
     else:
         morph_df_masked = morph_df
-
+    print(keep_structs)
+    print(morph_df_masked.head())
     # remove ventral targets and out of brain 
     ventral_targs = ["ipsi_{}".format(v) for v in vs_acronyms] + ["contra_{}".format(v) for v in vs_acronyms]
     targets_to_remove = ["ipsi_Out Of Cortex", "ipsi_root","contra_Out Of Cortex", "contra_root"] + ventral_targs
     morph_df_masked = morph_df_masked[~morph_df_masked['ccf_structure_sided'].isin(targets_to_remove)]
-
-    # accomodate tip counting instead of axon length 
-    if tip_count:
-        morph_df_masked = morph_df_masked[morph_df_masked['node_type']=='tip']
-        spacing = 1
     
+    print(morph_df_masked.node_type.value_counts())
+    print("count method",count_method)
+    # accomodate tip counting instead of axon length 
+    if count_method != 'node':
+        morph_df_masked = morph_df_masked[morph_df_masked['node_type']==count_method]
+        spacing = 1
+    print(morph_df_masked.head())
     # qunatify projections per structure 
     n_nodes_per_structure = morph_df_masked.ccf_structure_sided.value_counts()
     axon_length_per_structure = n_nodes_per_structure*spacing
     specimen_projection_summary = axon_length_per_structure.to_dict()
-    
+    print(specimen_projection_summary)
     return input_swc_file, specimen_projection_summary   
 
  
