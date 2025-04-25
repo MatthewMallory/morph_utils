@@ -274,7 +274,7 @@ def get_mouse_hpf_passing(db_file):
               [Cell Overall State] NOT LIKE 'Failed%' AND 
               [Cell Overall State] NOT LIKE 'Rescan%' AND
        (
-              (Project LIKE 'mIVSCC-MET%' AND 
+              (Project LIKE 'mIVSCC-MET' AND 
                      (
                             [Pinned Structure and Layer] LIKE 'HPF%' OR 
                             [Pinned Structure and Layer] LIKE 'HIP%' OR 
