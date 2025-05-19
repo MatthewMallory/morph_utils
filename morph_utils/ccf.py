@@ -362,7 +362,9 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     
     # annotate each node
     if morph_df.empty:
-        print("Its empty")
+        
+        msg = "morph_df is empty, possibly caused by `morph_df = morph_df[morph_df['type'].isin(node_type_list)]`"
+        warnings.warn(msg)
         return input_swc_file, {} 
     
     morph_df['ccf_structure'] = morph_df.apply(lambda rw: full_name_to_abbrev_dict[get_ccf_structure( np.array([rw.x, rw.y, rw.z]) , name_map, annotation, True)], axis=1)
@@ -383,7 +385,6 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
 
     # determine ipsi/contra projections
     morph_df["ccf_structure_sided"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure) if row.z<z_midline else "contra_{}".format(row.ccf_structure), axis=1)
-    print(morph_df.head())
     # mask the morphology dataframe accordinagly
     if mask_method!="None":
             
@@ -405,26 +406,22 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         morph_df_masked = morph_df[morph_df['ccf_structure_sided'].isin(keep_structs)]
         
     else:
+        print("Not masking projection matrix...")
         morph_df_masked = morph_df
-    print(keep_structs)
-    print(morph_df_masked.head())
+        
     # remove ventral targets and out of brain 
     ventral_targs = ["ipsi_{}".format(v) for v in vs_acronyms] + ["contra_{}".format(v) for v in vs_acronyms]
     targets_to_remove = ["ipsi_Out Of Cortex", "ipsi_root","contra_Out Of Cortex", "contra_root"] + ventral_targs
     morph_df_masked = morph_df_masked[~morph_df_masked['ccf_structure_sided'].isin(targets_to_remove)]
     
-    print(morph_df_masked.node_type.value_counts())
-    print("count method",count_method)
     # accomodate tip counting instead of axon length 
     if count_method != 'node':
         morph_df_masked = morph_df_masked[morph_df_masked['node_type']==count_method]
         spacing = 1
-    print(morph_df_masked.head())
     # qunatify projections per structure 
     n_nodes_per_structure = morph_df_masked.ccf_structure_sided.value_counts()
     axon_length_per_structure = n_nodes_per_structure*spacing
     specimen_projection_summary = axon_length_per_structure.to_dict()
-    print(specimen_projection_summary)
     return input_swc_file, specimen_projection_summary   
 
  
