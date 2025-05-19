@@ -5,16 +5,11 @@ import argschema as ags
 from morph_utils.ccf import projection_matrix_for_swc
 
 class IO_Schema(ags.ArgSchema):
-    input_swc_file = ags.fields.InputFile(description='directory with micron resolution ccf registered files')
+    output_directory = ags.fields.OutputDir(description="output directory")
     output_projection_csv = ags.fields.OutputFile(description="output projection csv")
+    mask_method = ags.fields.Str(default="tip_and_branch",description = " 'tip_and_branch', 'branch', 'tip', or 'tip_or_branch' ")
     projection_threshold = ags.fields.Int(default=0)
     normalize_proj_mat = ags.fields.Boolean(default=True)
-    mask_method = ags.fields.Str(default="tip_and_branch",description = " 'tip_and_branch', 'branch', 'tip', or 'tip_or_branch' ")
-    count_method = ags.fields.String(default="node", description="should be a member of ['node','tip','branch']")
-    annotation_path = ags.fields.Str(default="",description = "Optional. Path to annotation .nrrd file. Defaults to 10um ccf atlas")
-    resolution = ags.fields.Int(default=10, description="Optional. ccf resolution (micron/pixel")
-    volume_shape = ags.fields.List(ags.fields.Int, default=[1320, 800, 1140], description = "Optional. Size of input annotation")
-    resample_spacing = ags.fields.Float(allow_none=True, default=None, description = 'internode spacing to resample input morphology with')
 
 
 def normalize_projection_columns_per_cell(input_df, projection_column_identifiers=['ipsi', 'contra']):
@@ -32,41 +27,24 @@ def normalize_projection_columns_per_cell(input_df, projection_column_identifier
     return input_df
 
 
-def main(input_swc_file, 
+def main(output_directory,
          output_projection_csv, 
-         resolution, 
-         projection_threshold, 
-         normalize_proj_mat,
+         projection_threshold,
          mask_method,
-         count_method,
-         annotation_path,
-         volume_shape,
-         resample_spacing,
+         normalize_proj_mat,
          **kwargs):
     
-    if annotation_path == "":
-        annotation_path = None
-        
-    if mask_method not in [None,'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
-        raise ValueError(f"Invalid mask_method provided {mask_method}")  
-    
-    results = []
-    res = projection_matrix_for_swc(input_swc_file=input_swc_file, 
-                                    count_method = count_method, 
-                                    mask_method = mask_method,
-                                    annotation=None, 
-                                    annotation_path = annotation_path, 
-                                    volume_shape=volume_shape,
-                                    resolution=resolution,
-                                    resample_spacing=resample_spacing)
-    results = [res]
-        
+    files_of_interest = [f for f in os.listdir(output_directory) if (f.endswith(".csv") and not f.endswith("_norm.csv")) ]
     output_projection_csv = output_projection_csv.replace(".csv", f"_{mask_method}.csv")
+    
     projection_records = {}
     # branch_and_tip_projection_records = {}
-    for res in results:
-        fn = os.path.abspath(res[0])
-        proj_records = res[1]
+    for fn in files_of_interest:
+        df = pd.read_csv(os.path.join(output_directory, fn),index_col=0)
+        src_file = df.index[0]
+        fn = os.path.abspath(src_file)
+        
+        proj_records = df.loc[src_file].to_dict()
         # brnch_tip_records = res[1]
 
         projection_records[fn] = proj_records
@@ -77,7 +55,7 @@ def main(input_swc_file,
 
     proj_df.to_csv(output_projection_csv)
     # proj_df_mask.to_csv(output_projection_csv_tip_branch_mask)
-    print(proj_df.head())
+
     if projection_threshold != 0:
         output_projection_csv = output_projection_csv.replace(".csv",
                                                               "{}thresh.csv".format(projection_threshold))
