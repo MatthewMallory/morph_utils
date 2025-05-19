@@ -129,9 +129,8 @@ def resample_morphology(morph, spacing_size):
         old_irr_id_to_new_irr_id_dict[root['id']]=new_root['id']
         this_roots_children = morph.get_children(root)
         node_ct+=1
-          
-        for child in this_roots_children:
-                
+        for child in this_roots_children:   
+            # in a sense children of the root nodes are also treated as irreducible nodes
             new_child = copy(child)
             new_child['parent'] = new_root['id']
             new_child['id'] = node_ct
@@ -151,18 +150,31 @@ def resample_morphology(morph, spacing_size):
                 
                 parent = morph.node_by_id(current_node['parent'])
                 siblings = morph.get_children(parent)
+                # so if the current_node has siblings (it's parent furcates),
+                # and we've already visited the parent, we should add that parent to this_list
+                # as it will be the first upstream irreducible node in this segment
                 if len(siblings)>1 and parent['id'] in seen_ids:
                     if parent['id']!=morph.get_soma()['id']:
+                        # this needs to happend before we add current_node to the list
                         this_list.append(parent)
-                    
+
+                # now add current node, and update that we've seen curent node
                 this_list.append(current_node)
                 seen_ids.update([current_node['id']])
                 children_list = morph.get_children(current_node)
                 if len(children_list)!=1:
-                    irreducible_segments.append(this_list)
+                    # if `current_node` is the immediate child of `child`, and is irreducible, 
+                    # then `this_list` will only contain `current_node`
+                    if this_list!= [current_node]:
+                        # otherwise, add this_list to our meta list
+                        irreducible_segments.append(this_list)
+                        
+                    # refresh the list
                     this_list = []
                 
                 for ch_no in children_list:
+                    # add the children, and the upstream irreducible parent node will be 
+                    # added using the logic from beore
                     queue.appendleft(ch_no)
 
 
@@ -227,8 +239,12 @@ def resample_morphology(morph, spacing_size):
                 node_ct+=1
                 new_node_2 = copy(irr_node_2)
                 if len(reducible_arr)==0:
+                    # if there are no reducible nodes, the down tree reducible node
+                    # should point to the upstream one
                     new_node_2['parent'] = red_1_parent_id
                 else:
+                    # otherwise, the downstream irreducible node should point to 
+                    # the last redubile node id, which will be node_ct-1
                     new_node_2['parent'] = node_ct-1
                 new_node_2['id']=node_ct
                 new_nodes.append(new_node_2)
@@ -239,10 +255,10 @@ def resample_morphology(morph, spacing_size):
 
             node_ct+=1    
 
-        resampled_morph = Morphology(new_nodes,
-                parent_id_cb=lambda x:x['parent'],
-                node_id_cb=lambda x:x['id'])
-        
+    resampled_morph = Morphology(new_nodes,
+            parent_id_cb=lambda x:x['parent'],
+            node_id_cb=lambda x:x['id'])
+
     return resampled_morph
 
 
