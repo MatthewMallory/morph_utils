@@ -302,7 +302,7 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         'tip_and_branch' will return a projection matrix masking only structures with tip and branch nodes. If 'tip'
         will only look at structures with tip nodes. And last, if 'branch' will only look at structures with 
         branch nodes.
-        count_method (str): ['node','tip','branch']. When 'node', will measure axon length by multiplying by internode spacing.
+        count_method (str): ['node','tip','branch']. When 'node', will measure axon length directly.
         Otherwise will return the count of tip or branch nodes in each structure
         annotation (array, optional): 3 dimensional ccf annotation array. Defaults to None.
         annotation_path (str, optional): path to nrrd file to use (optional). Defaults to None.
