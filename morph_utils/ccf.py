@@ -294,9 +294,7 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
                               resolution=10, node_type_list=[2],
                               resample_spacing=None):
     """
-    Given a swc file, quantify the projection matrix. That is the amount of axon in each structure. This function assumes
-    there is equivalent internode spacing (i.e. the input swc file should be resampled prior to running this code). 
-
+    Given a swc file, quantify the projection matrix.  
 
     Args:
         input_swc_file (str): path to swc file
@@ -304,7 +302,7 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         'tip_and_branch' will return a projection matrix masking only structures with tip and branch nodes. If 'tip'
         will only look at structures with tip nodes. And last, if 'branch' will only look at structures with 
         branch nodes.
-        count_method (str): ['node','tip','branch']. When 'node', will measure axon length by multiplying by internode spacing.
+        count_method (str): ['node','tip','branch']. When 'node', will measure axon length directly.
         Otherwise will return the count of tip or branch nodes in each structure
         annotation (array, optional): 3 dimensional ccf annotation array. Defaults to None.
         annotation_path (str, optional): path to nrrd file to use (optional). Defaults to None.
@@ -334,6 +332,13 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     if count_method not in ['node','tip','branch']:
         msg = f"count_method must be  'node','tip', or 'branch'. You passed in: {count_method}"        
         raise ValueError(msg)
+
+    if mask_method == 'None':
+        mask_method = None
+        
+    if mask_method not in [None,'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
+        raise ValueError(f"Invalid mask_method provided {mask_method}")
+
     
     sg_df = load_structure_graph()
     name_map = NAME_MAP
@@ -353,8 +358,6 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     if resample_spacing is not None:
         morph = resample_morphology(morph, resample_spacing)
                
-    spacing = get_node_spacing(morph)[0]
-
     morph_df = pd.DataFrame(morph.nodes())
 
     # filter by axon/dend types
@@ -386,21 +389,21 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     # determine ipsi/contra projections
     morph_df["ccf_structure_sided"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure) if row.z<z_midline else "contra_{}".format(row.ccf_structure), axis=1)
     # mask the morphology dataframe accordinagly
-    if mask_method!="None":
+    if mask_method!=None:
             
         keep_structs = []
         for struct, struct_df in morph_df.groupby("ccf_structure_sided"):
             node_types_in_struct = struct_df.node_type.unique().tolist()
-            if (mask_method == 'tip') & ("tip" in node_types_in_struct):
+            if (mask_method == 'tip') and ("tip" in node_types_in_struct):
                 keep_structs.append(struct)
                 
-            elif (mask_method == 'branch') & ("branch" in node_types_in_struct):
+            elif (mask_method == 'branch') and ("branch" in node_types_in_struct):
                 keep_structs.append(struct)
                 
-            elif (mask_method == 'tip_and_branch') & (all([i in node_types_in_struct for i in ['tip','branch']])):
+            elif (mask_method == 'tip_and_branch') and (all([i in node_types_in_struct for i in ['tip','branch']])):
                 keep_structs.append(struct)
                 
-            elif (mask_method == 'tip_or_branch') & (any([i in node_types_in_struct for i in ['tip','branch']])):
+            elif (mask_method == 'tip_or_branch') and (any([i in node_types_in_struct for i in ['tip','branch']])):
                 keep_structs.append(struct)
                             
         morph_df_masked = morph_df[morph_df['ccf_structure_sided'].isin(keep_structs)]
@@ -417,11 +420,32 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
     # accomodate tip counting instead of axon length 
     if count_method != 'node':
         morph_df_masked = morph_df_masked[morph_df_masked['node_type']==count_method]
-        spacing = 1
-    # qunatify projections per structure 
-    n_nodes_per_structure = morph_df_masked.ccf_structure_sided.value_counts()
-    axon_length_per_structure = n_nodes_per_structure*spacing
-    specimen_projection_summary = axon_length_per_structure.to_dict()
+
+        n_nodes_per_structure = morph_df_masked.ccf_structure_sided.value_counts()
+        axon_length_per_structure = n_nodes_per_structure
+        specimen_projection_summary = axon_length_per_structure.to_dict()
+
+    else:
+        # merge on itself, but on parent id to get parent x,y,z coords
+        df_merged = morph_df_masked.merge(
+        morph_df_masked[['id', 'x', 'y', 'z']].rename(columns={
+            'id': 'parent',
+            'x': 'parent_x',
+            'y': 'parent_y',
+            'z': 'parent_z'
+        }),
+        on='parent',
+        how='left'
+        )
+
+        df_merged['parent_distance'] = np.sqrt(
+            (df_merged['x'] - df_merged['parent_x'])**2 +
+            (df_merged['y'] - df_merged['parent_y'])**2 +
+            (df_merged['z'] - df_merged['parent_z'])**2
+        ).fillna(0)
+        
+        specimen_projection_summary = df_merged.groupby('ccf_structure_sided')['parent_distance'].sum().to_dict()
+
     return input_swc_file, specimen_projection_summary   
 
  
