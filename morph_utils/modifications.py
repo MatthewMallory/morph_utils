@@ -98,8 +98,50 @@ def resample_3d_points(points, spacing):
     
     return np.vstack([resampled_array, points[-1]])
 
+def _angle_between(v1, v2):
+    """Returns the angle in degrees between vectors 'v1' and 'v2'."""
+    norm_v1 = np.linalg.norm(v1)
+    norm_v2 = np.linalg.norm(v2)
+    if norm_v1 == 0 or norm_v2 == 0:
+        return 0.0
+    v1_u = v1 / norm_v1
+    v2_u = v2 / norm_v2
+    angle = np.arccos(np.clip(np.dot(v1_u, v2_u), -1.0, 1.0))
+    return np.degrees(angle)
 
-def resample_morphology(morph, spacing_size):
+def resample_3d_points_by_angle(points, angle_threshold):
+    """
+    Resample a polyline by keeping points where direction changes enough.
+
+    Parameters:
+        points: NxD array of coordinates (2D or 3D)
+        angle_threshold: float (degrees), minimum total angular change before keeping a point
+
+    Returns:
+        resampled_points: list of D-dimensional tuples
+    """
+    points = np.array(points)
+    if len(points) < 3:
+        return points.tolist()
+
+    resampled = [points[0]]
+    prev_vec = points[1] - points[0]
+    accumulated_angle = 0.0
+
+    for i in range(1, len(points) - 1):
+        curr_vec = points[i + 1] - points[i]
+        angle = _angle_between(prev_vec, curr_vec)
+        accumulated_angle += angle
+
+        if accumulated_angle >= angle_threshold:
+            resampled.append(points[i])
+            accumulated_angle = 0.0
+            prev_vec = curr_vec
+
+    resampled.append(points[-1])
+    return np.array([tuple(p) for p in resampled])
+
+def resample_morphology(morph, spacing_size=None, angle_threshold=None):
     """
     Will resample the spacing between ancestor-descendant irreducible node pairs. In this function, 
     we consider irreducible nodes to be leaf nodes, branch nodes and the immediate children of the soma.
@@ -107,13 +149,26 @@ def resample_morphology(morph, spacing_size):
     occur between the soma and it's first descendant because this space should be occupied by 
     the somas' radius. 
     
+    Inputing a value for 'spacing_size' will resample the morphology with this distance between nodes. 
     If the spacing_size is larger than the distance between a given pair of ancestor-descendant 
     irreducible nodes, only the irreducible nodes will remain in the morphology. 
+
+    Otherwise, inputing a value for 'angle_threshold' will resample the morphology with this 
+    maximum angle between nodes. 
     
     Args:
         morph (neuron_morphology.Morphology): input morphology
         spacing_size (float): desired spacing between nodes. 
+        angle_threshold (float): desired maximum angle between resampled nodes. 
     """
+
+    #determine resample type
+    if not spacing_size is None:
+        resample_type = 'spacing'
+    elif not angle_threshold is None:
+        resample_type = 'angle'
+    else:
+        raise ValueError('spacing_size or angle_threshold must be given')
 
     # iterate over roots so this can handle autotrace cells that have multiple roots (disconnected segments)
     roots = [n for n in morph.nodes() if n['parent']==-1 and n['type']==1]
@@ -186,13 +241,23 @@ def resample_morphology(morph, spacing_size):
                 
                 dist_between_irr_nodes = dist_bwn_nodes(irr_node_1, irr_node_2)
                 segment_arr = np.array([[n['x'],n['y'],n['z']] for n in sublist])
-                if (segment_arr.shape[0] > 2) or (dist_between_irr_nodes>spacing_size) :
-                    # resample the segment when there are multiple nodes, or the
-                    # space between the nodes is greater than sampling size
-                    segment_arr_resamp = resample_3d_points(segment_arr, spacing_size)
-                    reducible_arr = segment_arr_resamp[1:-1]
-                else:
-                    reducible_arr = []
+
+                if resample_type == 'spacing':
+                    if (segment_arr.shape[0] > 2) or (dist_between_irr_nodes>spacing_size) :
+                        # resample the segment when there are multiple nodes, or the
+                        # space between the nodes is greater than sampling size
+                        segment_arr_resamp = resample_3d_points(segment_arr, spacing_size)
+                        reducible_arr = segment_arr_resamp[1:-1]
+                    else:
+                        reducible_arr = []
+                else: #resample_type == angle 
+                    if (segment_arr.shape[0] > 2):
+                        # resample the segment when there are multiple nodes, or the
+                        # angle between this and the lat saved node is greater than angle threshold
+                        segment_arr_resamp = resample_3d_points_by_angle(segment_arr, angle_threshold)
+                        reducible_arr = segment_arr_resamp[1:-1]
+                    else:
+                        reducible_arr = []
                     
                 # determine what node id the first reducible node should point to                
                 if irr_node_1['id'] in already_seen_irr_node_ids:
