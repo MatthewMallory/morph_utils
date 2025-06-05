@@ -16,15 +16,28 @@ from morph_utils.measurements import get_node_spacing
 from morph_utils.modifications import resample_morphology
 
 
-NAME_MAP_FILE = files('morph_utils') / 'data/ccf_structure_name_map.json'
-with open(NAME_MAP_FILE, "r") as fn: 
+_NAME_MAP_FILE = files('morph_utils') / 'data/ccf_structure_name_map.json'
+with open(_NAME_MAP_FILE, "r") as fn: 
     NAME_MAP = json.load(fn)
 NAME_MAP = {int(k):v for k,v in NAME_MAP.items()}
 
-ACR_MAP_FILE = files('morph_utils') / 'data/ccf_structure_acronym_by_id.json'
-with open(ACR_MAP_FILE, "r") as fn: 
+_ACR_MAP_FILE = files('morph_utils') / 'data/ccf_structure_acronym_by_id.json'
+with open(_ACR_MAP_FILE, "r") as fn: 
     ACRONYM_MAP = json.load(fn)
 ACRONYM_MAP = {k:int(v) for k,v in ACRONYM_MAP.items()}
+INVERSE_ACRONYM_MAP = {v:k for k,v in ACRONYM_MAP.items()}
+
+_ACR_DESCENDANT_FILE = files('morph_utils') / 'data/structure_descendent_list.json'
+with open(_ACR_DESCENDANT_FILE, "r") as fn: 
+    STRUCTURE_DESCENDANTS_INT = json.load(fn)
+    
+STRUCTURE_DESCENDANTS_ACRONYM = {}
+for st_id, id_list in STRUCTURE_DESCENDANTS_INT.items():
+    this_acr = INVERSE_ACRONYM_MAP[int(st_id)]
+    STRUCTURE_DESCENDANTS_ACRONYM[this_acr] = []
+    for sub_st_id in id_list:
+        sub_st_acr = INVERSE_ACRONYM_MAP[int(sub_st_id)]
+        STRUCTURE_DESCENDANTS_ACRONYM[this_acr].append(sub_st_acr)
 
 
 _cached_ccf_annotation = None
