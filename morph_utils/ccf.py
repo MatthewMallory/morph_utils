@@ -30,7 +30,7 @@ INVERSE_ACRONYM_MAP = {v:k for k,v in ACRONYM_MAP.items()}
 _ACR_DESCENDANT_FILE = files('morph_utils') / 'data/structure_descendent_list.json'
 with open(_ACR_DESCENDANT_FILE, "r") as fn: 
     STRUCTURE_DESCENDANTS_INT = json.load(fn)
-STRUCTURE_DESCENDANTS_INT = {k:int(v) for k,v in STRUCTURE_DESCENDANTS_INT.items()}
+STRUCTURE_DESCENDANTS_INT = {int(k): [int(sub_v) for sub_v in v] for k,v in STRUCTURE_DESCENDANTS_INT.items()}
 
 STRUCTURE_DESCENDANTS_ACRONYM = {}
 for st_id, id_list in STRUCTURE_DESCENDANTS_INT.items():
