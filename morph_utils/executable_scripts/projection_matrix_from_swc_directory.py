@@ -5,6 +5,7 @@ import argschema as ags
 import time 
 import subprocess
 from morph_utils.ccf import projection_matrix_for_swc
+from morph_utils.proj_mat_utils import roll_up_proj_mat
 
 
 class IO_Schema(ags.ArgSchema):
@@ -241,6 +242,7 @@ def main(ccf_swc_directory,
         # proj_df_mask = pd.DataFrame(branch_and_tip_projection_records).T.fillna(0)
 
         proj_df.to_csv(output_projection_csv)
+        roll_up_proj_mat(output_projection_csv, output_projection_csv.replace(".csv","_rollup.csv"))
         # proj_df_mask.to_csv(output_projection_csv_tip_branch_mask)
 
         if projection_threshold != 0:
@@ -254,6 +256,8 @@ def main(ccf_swc_directory,
             proj_df_arr[proj_df_arr < projection_threshold] = 0
             proj_df = pd.DataFrame(proj_df_arr, columns=proj_df.columns, index=proj_df.index)
             proj_df.to_csv(output_projection_csv)
+            roll_up_proj_mat(output_projection_csv, output_projection_csv.replace(".csv","_rollup.csv"))
+
 
             # proj_df_mask_arr = proj_df_mask.values
             # proj_df_mask_arr[proj_df_mask_arr < projection_threshold] = 0
@@ -266,6 +270,7 @@ def main(ccf_swc_directory,
 
             proj_df = normalize_projection_columns_per_cell(proj_df)
             proj_df.to_csv(output_projection_csv)
+            roll_up_proj_mat(output_projection_csv, output_projection_csv.replace(".csv","_rollup.csv"))
 
             # proj_df_mask = normalize_projection_columns_per_cell(proj_df_mask)
             # proj_df_mask.to_csv(output_projection_csv_tip_branch_mask)
