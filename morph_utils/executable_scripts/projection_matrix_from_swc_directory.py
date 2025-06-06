@@ -88,17 +88,17 @@ def main(ccf_swc_directory,
             results.append(res)
 
         else:
-                
             this_output_projection_csv = os.path.join(single_sp_proj_dir, swc_fn.replace(".swc",".csv"))
+            this_output_projection_csv_check = os.path.join(single_sp_proj_dir, swc_fn.replace(".swc",f"_{mask_method}.csv"))
             
-            if not os.path.exists(this_output_projection_csv):
+            if not os.path.exists(this_output_projection_csv_check):
                     
                 job_file = os.path.join(job_dir,swc_fn.replace(".swc",".sh"))
                 log_file = os.path.join(job_dir,swc_fn.replace(".swc",".log"))
                 
                 command = "morph_utils_extract_projection_matrix_single_cell "
                 command = command+ f" --input_swc_file '{swc_pth}'"
-                command = command+ f" --output_projection_csv {this_output_projection_csv}"
+                command = command+ f" --output_projection_csv '{this_output_projection_csv}'"
                 command = command+ f" --projection_threshold {projection_threshold}"
                 command = command+ f" --normalize_proj_mat {normalize_proj_mat}"
                 command = command+ f" --mask_method {mask_method}"
@@ -114,7 +114,7 @@ def main(ccf_swc_directory,
                 command_list = [activate_command, command]
                         
                 slurm_kwargs = {
-                    "--job-name": f"{swc_fn}",
+                    "--job-name": f"'{swc_fn}'",
                     "--mail-type": "NONE",
                     "--cpus-per-task": "1",
                     "--nodes": "1",
@@ -122,7 +122,7 @@ def main(ccf_swc_directory,
                     "--mem": "24gb",
                     "--time": "1:00:00",
                     "--partition": "celltypes",
-                    "--output": log_file
+                    "--output": f"'{log_file}'"
                 }
 
                 dag_node = {
@@ -147,15 +147,20 @@ def main(ccf_swc_directory,
                         job_f.write(val)
                         job_f.write('\n')
                         
-                        
-                command = "sbatch {}".format(job_file)
-                command_list = command.split(" ")
-                result = subprocess.run(command_list, stdout=subprocess.PIPE)
-                std_out = result.stdout.decode('utf-8')
+                # print("Going to submit this job file")
+                # print(job_file)
+                command_list = ["sbatch", job_file]
+                result = subprocess.run(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-                job_id = std_out.split("Submitted batch job ")[-1].replace("\n", "")
-                single_cell_job_ids.append(job_id)
-                # time.sleep(0.1)
+                std_out = result.stdout.decode('utf-8')
+                std_err = result.stderr.decode('utf-8')
+
+                if result.returncode != 0:
+                    print("Error submitting job:", std_err)
+                else:
+                    job_id = std_out.split("Submitted batch job ")[-1].strip()
+                    single_cell_job_ids.append(job_id)
+                    
                 
     if run_host!='local':
         # aggregate single projection files into proj mat
@@ -206,18 +211,19 @@ def main(ccf_swc_directory,
                 job_f.write(val)
                 job_f.write('\n')
                 
-        command = "sbatch --dependency=afterany"
-        for p_jid in single_cell_job_ids:
-            command = command + f":{p_jid}"
-        command = command + " {}".format(job_file)
-        command_list = command.split(" ")
-        # print(command)
-        result = subprocess.run(command_list, stdout=subprocess.PIPE)
+        dependency_str = f"afterany:{':'.join(single_cell_job_ids)}"
+        command_list = ["sbatch", f"--dependency={dependency_str}", job_file]
+        result = subprocess.run(command_list, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         std_out = result.stdout.decode('utf-8')
+        std_err = result.stderr.decode('utf-8')
 
-        job_id = std_out.split("Submitted batch job ")[-1].replace("\n", "")
-        
-       
+        if result.returncode != 0:
+            print("Error submitting dependent job:", std_err)
+        else:
+            job_id = std_out.split("Submitted batch job ")[-1].strip()
+            print(f"Submitted aggregation job ID: {job_id}")
+            
+
     if results != []:
         
         output_projection_csv = output_projection_csv.replace(".csv", f"_{mask_method}.csv")
