@@ -2,7 +2,9 @@ import os
 from tqdm import tqdm
 import pandas as pd
 import argschema as ags
-from morph_utils.ccf import projection_matrix_for_swc
+import numpy as np
+from morph_utils.proj_mat_utils import roll_up_proj_mat,normalize_projection_columns_per_cell
+
 
 class IO_Schema(ags.ArgSchema):
     output_directory = ags.fields.OutputDir(description="output directory")
@@ -10,21 +12,6 @@ class IO_Schema(ags.ArgSchema):
     mask_method = ags.fields.Str(default="tip_and_branch",description = " 'tip_and_branch', 'branch', 'tip', or 'tip_or_branch' ")
     projection_threshold = ags.fields.Int(default=0)
     normalize_proj_mat = ags.fields.Boolean(default=True)
-
-
-def normalize_projection_columns_per_cell(input_df, projection_column_identifiers=['ipsi', 'contra']):
-    """
-    :param input_df:  input projection df
-    :param projection_column_identifiers: list of identifiers for projection columns. i.e. strings that identify projection columns from metadata columns
-    :return: normalized projection matrix
-    """
-    proj_cols = [c for c in input_df.columns if any([ider in c for ider in projection_column_identifiers])]
-    input_df[proj_cols] = input_df[proj_cols].fillna(0)
-
-    res = input_df[proj_cols].T / input_df[proj_cols].sum(axis=1)
-    input_df[proj_cols] = res.T
-
-    return input_df
 
 
 def main(output_directory,
@@ -54,6 +41,7 @@ def main(output_directory,
     # proj_df_mask = pd.DataFrame(branch_and_tip_projection_records).T.fillna(0)
 
     proj_df.to_csv(output_projection_csv)
+    roll_up_proj_mat(infile=output_projection_csv, outfile=output_projection_csv.replace(".csv",'_rollup.csv'))
     # proj_df_mask.to_csv(output_projection_csv_tip_branch_mask)
 
     if projection_threshold != 0:
@@ -67,6 +55,7 @@ def main(output_directory,
         proj_df_arr[proj_df_arr < projection_threshold] = 0
         proj_df = pd.DataFrame(proj_df_arr, columns=proj_df.columns, index=proj_df.index)
         proj_df.to_csv(output_projection_csv)
+        roll_up_proj_mat(output_projection_csv, output_projection_csv.replace(".csv","_rollup.csv"))
 
         # proj_df_mask_arr = proj_df_mask.values
         # proj_df_mask_arr[proj_df_mask_arr < projection_threshold] = 0
@@ -79,6 +68,7 @@ def main(output_directory,
 
         proj_df = normalize_projection_columns_per_cell(proj_df)
         proj_df.to_csv(output_projection_csv)
+        roll_up_proj_mat(infile=output_projection_csv, outfile=output_projection_csv.replace(".csv",'_rollup.csv'))
 
         # proj_df_mask = normalize_projection_columns_per_cell(proj_df_mask)
         # proj_df_mask.to_csv(output_projection_csv_tip_branch_mask)
