@@ -10,7 +10,7 @@ import numpy as np
 class IO_Schema(ags.ArgSchema):
     swc_input_directory = ags.fields.InputDir(description='directory with swc files')
     output_file = ags.fields.OutputFile(descripion='output csv with distances between files')
-    compartment_types = ags.fields.List(default=[3, 4], cls_or_instance=ags.fields.Int)
+    compartment_types = ags.fields.List(default=[2, 3, 4], cls_or_instance=ags.fields.Int)
     use_multiprocessing = ags.fields.Boolean(default=True)
 
 
@@ -29,6 +29,7 @@ def main(swc_input_directory, output_file, compartment_types, use_multiprocessin
     # all_combinations = [c for c in all_combinations] # if c[0] != c[1]]
 
     print("{} Comparisons to analyze".format(len(all_combinations)))
+    print(f"Comparing nodes of type: {compartment_types}")
     reslist = []
     for combo in all_combinations:
         file_1 = os.path.join(swc_input_directory, combo[0])

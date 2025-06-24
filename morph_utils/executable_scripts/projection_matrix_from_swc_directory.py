@@ -5,7 +5,7 @@ import argschema as ags
 import time 
 import subprocess
 from morph_utils.ccf import projection_matrix_for_swc
-from morph_utils.proj_mat_utils import roll_up_proj_mat
+from morph_utils.proj_mat_utils import roll_up_proj_mat, normalize_projection_columns_per_cell
 
 
 class IO_Schema(ags.ArgSchema):
@@ -24,19 +24,6 @@ class IO_Schema(ags.ArgSchema):
     output_projection_csv = ags.fields.OutputFile(description="output projection csv, when running local only")
 
     
-def normalize_projection_columns_per_cell(input_df, projection_column_identifiers=['ipsi', 'contra']):
-    """
-    :param input_df:  input projection df
-    :param projection_column_identifiers: list of identifiers for projection columns. i.e. strings that identify projection columns from metadata columns
-    :return: normalized projection matrix
-    """
-    proj_cols = [c for c in input_df.columns if any([ider in c for ider in projection_column_identifiers])]
-    input_df[proj_cols] = input_df[proj_cols].fillna(0)
-
-    res = input_df[proj_cols].T / input_df[proj_cols].sum(axis=1)
-    input_df[proj_cols] = res.T
-
-    return input_df
 
 
 def main(ccf_swc_directory, 
@@ -56,7 +43,10 @@ def main(ccf_swc_directory,
     
     if run_host not in ['local','hpc']:
         raise ValueError(f"Invalid run_host parameter entered ({run_host})")
-    if mask_method not in [None,'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
+    
+    if mask_method is None:
+        mask_method = "None"
+    if mask_method not in ["None",'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
         raise ValueError(f"Invalid mask_method provided {mask_method}")
     
     if annotation_path == "":
