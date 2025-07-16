@@ -7,15 +7,16 @@ from morph_utils.ccf import projection_matrix_for_swc
 class IO_Schema(ags.ArgSchema):
     input_swc_file = ags.fields.InputFile(description='directory with micron resolution ccf registered files')
     output_projection_csv = ags.fields.OutputFile(description="output projection csv")
+    mask_method = ags.fields.Str(description = " 'tip_and_branch', 'branch', 'tip', or 'tip_or_branch' ")
+    apply_mask_at_cortical_parent_level = ags.fields.Bool( descriptions='If True, the `mask_method` will be applied at aggregated cortical regions')
+
     projection_threshold = ags.fields.Int(default=0)
     normalize_proj_mat = ags.fields.Boolean(default=True)
-    mask_method = ags.fields.Str(default="tip_and_branch",description = " 'tip_and_branch', 'branch', 'tip', or 'tip_or_branch' ")
     count_method = ags.fields.String(default="node", description="should be a member of ['node','tip','branch']")
     annotation_path = ags.fields.Str(default="",description = "Optional. Path to annotation .nrrd file. Defaults to 10um ccf atlas")
     resolution = ags.fields.Int(default=10, description="Optional. ccf resolution (micron/pixel")
     volume_shape = ags.fields.List(ags.fields.Int, default=[1320, 800, 1140], description = "Optional. Size of input annotation")
     resample_spacing = ags.fields.Float(allow_none=True, default=None, description = 'internode spacing to resample input morphology with')
-
 
 def normalize_projection_columns_per_cell(input_df, projection_column_identifiers=['ipsi', 'contra']):
     """
@@ -42,12 +43,15 @@ def main(input_swc_file,
          annotation_path,
          volume_shape,
          resample_spacing,
+         apply_mask_at_cortical_parent_level,
          **kwargs):
     
     if annotation_path == "":
         annotation_path = None
-        
-    if mask_method not in [None,'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
+    
+    if mask_method is None:
+        mask_method = "None"
+    if mask_method not in [None, 'None', 'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
         raise ValueError(f"Invalid mask_method provided {mask_method}")  
     
     results = []
@@ -58,7 +62,8 @@ def main(input_swc_file,
                                     annotation_path = annotation_path, 
                                     volume_shape=volume_shape,
                                     resolution=resolution,
-                                    resample_spacing=resample_spacing)
+                                    resample_spacing=resample_spacing,
+                                    apply_mask_at_cortical_parent_level=apply_mask_at_cortical_parent_level)
     results = [res]
         
     output_projection_csv = output_projection_csv.replace(".csv", f"_{mask_method}.csv")

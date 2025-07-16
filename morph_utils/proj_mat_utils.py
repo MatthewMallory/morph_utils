@@ -2,24 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from morph_utils.ccf import STRUCTURE_DESCENDANTS_ACRONYM
-
-
-def de_layer(st):
-    CTX_STRUCTS = STRUCTURE_DESCENDANTS_ACRONYM['CTX']
-    sub_st = st.replace("ipsi_","").replace("contra","")
-    if sub_st in CTX_STRUCTS:
-            
-        for l in ["1","2/3","4","5","6a","6b"]:
-            st = st.replace(l,"")
-            
-        if "ENT" in st:
-            for l in ["2", "3","6"]:
-                st = st.replace(l,"")
-            
-        return st
-    else:
-        return st
+from morph_utils.ccf import de_layer 
 
 
 def roll_up_proj_mat(infile, outfile):
