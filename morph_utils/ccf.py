@@ -102,6 +102,30 @@ def load_structure_graph():
     df = df.set_index('acronym')
     return df
 
+def de_layer(st):
+    """de-layer cortical projection targets
+
+    Args:
+        st (str): e.g. ipsi_VISal2/3
+
+    Returns:
+        str: e.g. ipsi_VISal
+    """
+    CTX_STRUCTS = STRUCTURE_DESCENDANTS_ACRONYM['CTX']
+    sub_st = st.replace("ipsi_","").replace("contra_","")
+    if sub_st in CTX_STRUCTS:
+            
+        for l in ["1","2/3","4","5","6a","6b"]:
+            st = st.replace(l,"")
+            
+        if "ENT" in st:
+            for l in ["2", "3", "5/6", "6"]:
+                st = st.replace(l,"")
+            
+        return st
+    else:
+        return st
+
 
 def process_pin_jblob( slide_specimen_id, jblob, annotation, structures, prints=False) :
     """
@@ -303,6 +327,7 @@ def get_ccf_structure(voxel, name_map=None, annotation=None, coordinate_to_voxel
     return name_map[structure_id]
 
 def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch", 
+                              apply_mask_at_cortical_parent_level=False,
                               count_method = "node", annotation=None, 
                               annotation_path = None, volume_shape=(1320, 800, 1140),
                               resolution=10, node_type_list=[2],
@@ -316,6 +341,9 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
         'tip_and_branch' will return a projection matrix masking only structures with tip and branch nodes. If 'tip'
         will only look at structures with tip nodes. And last, if 'branch' will only look at structures with 
         branch nodes.
+        apply_mask_at_cortical_parent_level (bool): If True, the `mask_method` will be applied to aggregated cortical
+        regions. E.g. if `mask_method`='tip_and_branch' and apply_mask_at_cortical_parent_level = True, then 
+        the tip-and-branch mask will be enforced at the (e.g.) VISp level, instead of in VISp1, VISp2/3 etc. independantly
         count_method (str): ['node','tip','branch']. When 'node', will measure axon length directly.
         Otherwise will return the count of tip or branch nodes in each structure
         annotation (array, optional): 3 dimensional ccf annotation array. Defaults to None.
@@ -402,11 +430,21 @@ def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch",
 
     # determine ipsi/contra projections
     morph_df["ccf_structure_sided"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure) if row.z<z_midline else "contra_{}".format(row.ccf_structure), axis=1)
-    # mask the morphology dataframe accordinagly
-    if mask_method!=None:
-            
+    if apply_mask_at_cortical_parent_level:   
+        morph_df['ccf_structure_rollup'] =  morph_df['ccf_structure'].map(de_layer) 
+        morph_df["ccf_structure_sided_rollup"] = morph_df.apply(lambda row: "ipsi_{}".format(row.ccf_structure_rollup) if row.z<z_midline else "contra_{}".format(row.ccf_structure_rollup), axis=1)
+
+    # mask the morphology dataframe accordingly 
+    if mask_method is not None:
         keep_structs = []
-        for struct, struct_df in morph_df.groupby("ccf_structure_sided"):
+        for struct in morph_df['ccf_structure_sided'].unique():
+            
+            if apply_mask_at_cortical_parent_level:
+                sided_parent_struct = de_layer(struct)
+                struct_df = morph_df[morph_df['ccf_structure_sided_rollup']==sided_parent_struct]
+            else:
+                struct_df = morph_df[morph_df['ccf_structure_sided']==struct]
+                
             node_types_in_struct = struct_df.node_type.unique().tolist()
             if (mask_method == 'tip') and ("tip" in node_types_in_struct):
                 keep_structs.append(struct)

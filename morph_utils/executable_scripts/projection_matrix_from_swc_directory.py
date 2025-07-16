@@ -5,16 +5,17 @@ import argschema as ags
 import time 
 import subprocess
 from morph_utils.ccf import projection_matrix_for_swc
-from morph_utils.proj_mat_utils import roll_up_proj_mat
+from morph_utils.proj_mat_utils import roll_up_proj_mat, normalize_projection_columns_per_cell
 
 
 class IO_Schema(ags.ArgSchema):
     ccf_swc_directory = ags.fields.InputDir(description='directory with micron resolution ccf registered files')
     output_directory = ags.fields.OutputDir(description="output directory")
+    mask_method = ags.fields.Str(description = " 'tip_and_branch', 'branch', 'tip', or 'tip_or_branch' ")
+    apply_mask_at_cortical_parent_level = ags.fields.Bool( descriptions='If True, the `mask_method` will be applied at aggregated cortical regions')
+    count_method = ags.fields.String(default="node", description="should be a member of ['node','tip','branch']")
     projection_threshold = ags.fields.Int(default=0)
     normalize_proj_mat = ags.fields.Boolean(default=True)
-    mask_method = ags.fields.Str(default="tip_and_branch",description = " 'tip_and_branch', 'branch', 'tip', or 'tip_or_branch' ")
-    count_method = ags.fields.String(default="node", description="should be a member of ['node','tip','branch']")
     annotation_path = ags.fields.Str(default="",description = "Optional. Path to annotation .nrrd file. Defaults to 10um ccf atlas")
     resolution = ags.fields.Int(default=10, description="Optional. ccf resolution (micron/pixel")
     volume_shape = ags.fields.List(ags.fields.Int, default=[1320, 800, 1140], description = "Optional. Size of input annotation")
@@ -23,20 +24,6 @@ class IO_Schema(ags.ArgSchema):
     virtual_env_name = ags.fields.Str(default='skeleton_keys_4',description='Name of virtual conda env to activate on hpc. not needed if running local')
     output_projection_csv = ags.fields.OutputFile(description="output projection csv, when running local only")
 
-    
-def normalize_projection_columns_per_cell(input_df, projection_column_identifiers=['ipsi', 'contra']):
-    """
-    :param input_df:  input projection df
-    :param projection_column_identifiers: list of identifiers for projection columns. i.e. strings that identify projection columns from metadata columns
-    :return: normalized projection matrix
-    """
-    proj_cols = [c for c in input_df.columns if any([ider in c for ider in projection_column_identifiers])]
-    input_df[proj_cols] = input_df[proj_cols].fillna(0)
-
-    res = input_df[proj_cols].T / input_df[proj_cols].sum(axis=1)
-    input_df[proj_cols] = res.T
-
-    return input_df
 
 
 def main(ccf_swc_directory, 
@@ -45,6 +32,7 @@ def main(ccf_swc_directory,
          projection_threshold, 
          normalize_proj_mat,
          mask_method,
+         apply_mask_at_cortical_parent_level,
          count_method,
          annotation_path,
          volume_shape,
@@ -56,7 +44,10 @@ def main(ccf_swc_directory,
     
     if run_host not in ['local','hpc']:
         raise ValueError(f"Invalid run_host parameter entered ({run_host})")
-    if mask_method not in [None,'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
+    
+    if mask_method is None:
+        mask_method = "None"
+    if mask_method not in ["None",'tip_and_branch', 'branch', 'tip', 'tip_or_branch']:
         raise ValueError(f"Invalid mask_method provided {mask_method}")
     
     if annotation_path == "":
@@ -85,7 +76,9 @@ def main(ccf_swc_directory,
                                 annotation_path = annotation_path, 
                                 volume_shape=volume_shape,
                                 resolution=resolution,
-                                resample_spacing= resample_spacing)
+                                resample_spacing= resample_spacing,
+                                apply_mask_at_cortical_parent_level = apply_mask_at_cortical_parent_level,
+                                )
             results.append(res)
 
         else:
@@ -106,7 +99,7 @@ def main(ccf_swc_directory,
                 command = command+ f" --count_method {count_method}"
                 command = command+ f" --annotation_path {annotation_path}"
                 command = command+ f" --resolution {resolution}"
-                # command = command+ f" --volume_shape {volume_shape}"
+                command = command+ f" --apply_mask_at_cortical_parent_level {apply_mask_at_cortical_parent_level}"
                 if resample_spacing is not None:
                     command = command+ f" --resample_spacing {resample_spacing}"
 
