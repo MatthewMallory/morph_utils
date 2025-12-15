@@ -326,6 +326,133 @@ def get_ccf_structure(voxel, name_map=None, annotation=None, coordinate_to_voxel
     
     return name_map[structure_id]
 
+def annotate_swc_to_dataframe(
+    input_swc_file, 
+    annotation=None, 
+    annotation_path=None, 
+    volume_shape=(1320, 800, 1140),
+    resolution=10
+):
+    """
+    Loads an SWC file, maps its nodes to a brain atlas (CCF), and calculates 
+    node-level metrics (node type, hemisphere,  distance to parent and parent structure).
+
+    Args:
+        input_swc_file (str): Path to the input .swc file.
+        annotation (np.ndarray, optional): Pre-loaded CCF annotation volume.
+        annotation_path (str, optional): Path to the nrrd annotation file.
+        volume_shape (tuple): The (x, y, z) shape of the CCF volume. 
+            Defaults to (1320, 800, 1140) for CCFv3.
+        resolution (int): Resolution of the atlas in micrometers. Defaults to 10.
+
+    Returns:
+        pd.DataFrame: A DataFrame where each row is a neuron node with added columns:
+            - 'ccf_structure': Acronym of the brain region.
+            - 'node_type': 'tip', 'branch', or 'reducible'.
+            - 'ccf_structure_sided': Region name prefixed with 'ipsi_' or 'contra_'.
+            - 'parent_distance': Euclidean distance to the parent node.
+    """
+    # 1. Handle Annotation Loading
+    if annotation is None:
+        if isinstance(annotation_path, str) and not os.path.exists(annotation_path):
+            # Reset defaults if path is invalid
+            resolution = 10
+            volume_shape = (1320, 800, 1140)
+            warnings.warn(
+                f"Annotation path provided does not exist. Defaulting to 10um resolution CCF.\n"
+                f"Path: {annotation_path}"
+            )
+            annotation_path = None
+        
+        # Assumes open_ccf_annotation is defined in your environment
+        annotation = open_ccf_annotation(with_nrrd=True, annotation_path=annotation_path)
+    
+    # 2. Setup Structure Maps
+    sg_df = load_structure_graph()
+    name_map = NAME_MAP # Assumes NAME_MAP is a global constant
+    
+    # Map full names to acronyms (index)
+    full_name_to_abbrev_dict = dict(zip(sg_df.name, sg_df.index))
+    full_name_to_abbrev_dict['Out Of Cortex'] = 'Out Of Cortex'
+    
+    # Identify fiber tracts and ventricular systems for group-level assignment
+    fiber_tracts_id = sg_df[sg_df['name'] == 'fiber tracts']['id'].iloc[0]
+    fiber_tract_acronyms = sg_df[sg_df['structure_id_path'].apply(lambda x: fiber_tracts_id in x)].index
+
+    ventricular_system_id = sg_df[sg_df['name'] == 'ventricular systems']['id'].iloc[0]
+    vs_acronyms = sg_df[sg_df['structure_id_path'].apply(lambda x: ventricular_system_id in x)].index
+
+    # 3. Load and Orient Morphology
+    z_size = resolution * volume_shape[2]
+    z_midline = z_size / 2
+
+    morph = morphology_from_swc(input_swc_file)
+    # Ensure soma is on the left side for standardized laterality calculations
+    morph = move_soma_to_left_hemisphere(morph, resolution, volume_shape, z_midline) 
+    morph_df = pd.DataFrame(morph.nodes())
+
+    if morph_df.empty:
+        warnings.warn(f"Morphology dataframe is empty for file: {input_swc_file}")
+        return pd.DataFrame() 
+
+    # 4. Spatial Annotation
+    # Map coordinates to CCF structures
+    morph_df['ccf_structure'] = morph_df.apply(
+        lambda rw: full_name_to_abbrev_dict.get(
+            get_ccf_structure(np.array([rw.x, rw.y, rw.z]), name_map, annotation, True),
+            'Unknown'
+        ), axis=1
+    )
+    
+    # Group sub-structures into major categories
+    morph_df.loc[morph_df['ccf_structure'].isin(fiber_tract_acronyms), 'ccf_structure'] = 'fiber tracts'
+    morph_df.loc[morph_df['ccf_structure'].isin(vs_acronyms), 'ccf_structure'] = 'ventricular system'
+    
+    # 5. Node Topology Classification
+    def get_node_type(m, node_id):
+        child_ids = m.child_ids([node_id])[0]
+        nc = len(child_ids)
+        if nc == 0:
+            return 'tip'
+        elif nc > 1:
+            return 'branch'
+        else:
+            return 'reducible'
+
+    morph_df["node_type"] = morph_df.id.apply(lambda i: get_node_type(morph, i))
+
+    # 6. Laterality Calculation
+    morph_df["ccf_structure_sided"] = morph_df.apply(
+        lambda row: f"ipsi_{row.ccf_structure}" if row.z < z_midline else f"contra_{row.ccf_structure}", 
+        axis=1
+    )
+    
+    # 6.5 Parent structure
+    struct_lookup = dict(zip(morph_df['id'], morph_df['ccf_structure_sided']))    
+    morph_df['parent_node_structure'] = morph_df['parent'].map(struct_lookup).fillna('Na')
+
+
+    # 7. Parent Distance Calculation
+    df_merged = morph_df.merge(
+        morph_df[['id', 'x', 'y', 'z']].rename(columns={
+            'id': 'parent',
+            'x': 'parent_x',
+            'y': 'parent_y',
+            'z': 'parent_z'
+        }),
+        on='parent',
+        how='left'
+    )
+
+    df_merged['parent_distance'] = np.sqrt(
+        (df_merged['x'] - df_merged['parent_x'])**2 +
+        (df_merged['y'] - df_merged['parent_y'])**2 +
+        (df_merged['z'] - df_merged['parent_z'])**2
+    ).fillna(0)
+
+    return df_merged
+
+
 def projection_matrix_for_swc(input_swc_file, mask_method = "tip_and_branch", 
                               apply_mask_at_cortical_parent_level=False,
                               count_method = "node", annotation=None, 
