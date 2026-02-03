@@ -372,6 +372,7 @@ def generate_irreducible_morph(morph):
         next_node_up['type'] = 1
         irreducible_nodes_with_topology.append(next_node_up)
 
+    irreducible_nodes_with_topology.sort(key=lambda n: n['id'])
     morph_irreducible = Morphology(irreducible_nodes_with_topology,
                                    parent_id_cb=lambda x: x['parent'],
                                    node_id_cb=lambda x: x['id'])
