@@ -9,6 +9,10 @@ jobs:
     steps:
       - checkout
       - run:
+          name: install build dependencies
+          command: |
+            apt-get update && apt-get install -y gcc build-essential
+      - run:
           name: create conda env
           command: |
             conda create -n build_env python=3.9 
