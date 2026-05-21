@@ -10,7 +10,7 @@ from morph_utils.query import query_for_z_resolution
 from morph_utils.measurements import dist_bwn_nodes
 from scipy import interpolate
 from copy import copy
-
+import math
 
 def prune_tree(morphology,num_node_thresh, node_types=[1,2,3,4] ):
     """will prune any segments in the tree that are shorter than a given length threhsold, 
@@ -298,7 +298,7 @@ def resample_morphology(morph, spacing_size=None, angle_threshold=None):
                         new_nodes.append(new_node)
                         
                         equiv_idx+=step_size
-                        equiv_idx = np.math.floor(equiv_idx)
+                        equiv_idx = math.floor(equiv_idx)
                                 
                             
                 node_ct+=1
